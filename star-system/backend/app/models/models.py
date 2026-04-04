@@ -98,6 +98,15 @@ class Teacher(TeacherBase, table=True):
 
 
 class TeacherCreate(TeacherBase):
+    source: str = "self-registry"
+    data_confidence: float = 1.0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    # Accept lists from frontend — teachers.py will json.dumps() them before saving
+    subject_specializations: Optional[List[str]] = []
+    grade_levels_taught: Optional[List[str]] = []
+    low_confidence_subjects: Optional[List[str]] = []
+    unapplied_modules: Optional[List[str]] = []
     trainings_attended: Optional[List[str]] = []
 
 

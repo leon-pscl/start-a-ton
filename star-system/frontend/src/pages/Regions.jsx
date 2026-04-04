@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getRegions, getRegionDetail, exportCSV } from '../../lib/api'
-import { GapBadge, GapBar, Spinner, PageHeader, EmptyState } from '../shared'
+import { getRegions, getRegionDetail, exportCSV } from '../lib/api'
+import { GapBadge, GapBar, Spinner, PageHeader, EmptyState } from '../components/shared'
 
 export default function RegionsPage() {
   const [regions, setRegions] = useState([])

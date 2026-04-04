@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { getSummary, getRegions, exportCSV } from '../../lib/api'
-import { GAP_COLORS, pct } from '../../lib/constants'
-import { StatCard, GapBadge, GapBar, Spinner, PageHeader } from '../shared'
+import { getSummary, getRegions, exportCSV } from '../lib/api'
+import { GAP_COLORS, pct } from '../lib/constants'
+import { StatCard, GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
 
 export default function Dashboard() {
   const [summary, setSummary] = useState(null)

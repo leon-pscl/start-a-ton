@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getTeachers } from '../../lib/api'
-import { REGIONS, SUBJECTS } from '../../lib/constants'
-import { Spinner, EmptyState, PageHeader, GapBadge, Select } from '../shared'
+import { getTeachers } from '../lib/api'
+import { REGIONS, SUBJECTS } from '../lib/constants'
+import { Spinner, EmptyState, PageHeader, GapBadge, Select } from '../components/shared'
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState([])

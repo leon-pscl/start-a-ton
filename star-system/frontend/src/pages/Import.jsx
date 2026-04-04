@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { uploadFile, getImportLogs } from '../../lib/api'
-import { PageHeader, Spinner } from '../shared'
+import { uploadFile, getImportLogs } from '../lib/api'
+import { PageHeader, Spinner } from '../components/shared'
 
 const SOURCE_TYPES = [
   { value: 'sf7', label: 'SF7 / BEIS export', desc: 'DepEd School Form 7 CSV or Excel export' },

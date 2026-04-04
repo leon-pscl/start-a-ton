@@ -1,4 +1,4 @@
-import { GAP_COLORS } from '../lib/constants'
+import { GAP_COLORS } from '../../lib/constants'
 
 export function StatCard({ label, value, sub, accent }) {
   return (
