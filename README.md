@@ -10,6 +10,15 @@ cd star-system/backend
 python -m venv start-a-ton
 start-a-ton\Scripts\activate
 pip install -r requirements.txt
+```
+
+to initialize the database, and then fill it with mock data:
+```bash
+python seed.py
+```
+
+after all that, start the API server:
+```bash
 uvicorn main:app --reload --port 8000
 ```
 
