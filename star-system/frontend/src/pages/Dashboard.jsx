@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getSummary, getRegions, exportCSV } from '../lib/api'
 import { GAP_COLORS, pct } from '../lib/constants'
 import { StatCard, GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
+import PhilippinesMap from '../components/shared/PhilippinesMap'
 
 export default function Dashboard() {
   const [summary, setSummary] = useState(null)
   const [regions, setRegions] = useState([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   useEffect(() => {
     Promise.all([getSummary(), getRegions()])
@@ -22,7 +25,7 @@ export default function Dashboard() {
     .sort((a, b) => b.gap_score - a.gap_score)
     .slice(0, 12)
     .map(r => ({
-      name: r.region.replace('Region ', 'R').replace('Region ', 'R'),
+      name: r.region.replace('Region ', 'R'),
       score: Math.round(r.gap_score * 100),
       level: r.gap_level,
     }))
@@ -65,11 +68,31 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {/* Map + chart row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        {/* Compact map */}
+        <div className="card flex flex-col items-center">
+          <div className="flex items-center justify-between w-full mb-3">
+            <h2 className="text-sm font-semibold text-slate-700">Regional overview</h2>
+            <button
+              onClick={() => navigate('/regions')}
+              className="text-xs text-star-600 hover:underline"
+            >
+              View full map →
+            </button>
+          </div>
+          <PhilippinesMap
+            regions={regions}
+            compact={true}
+            onSelect={(region) => navigate(`/regions?selected=${encodeURIComponent(region)}`)}
+          />
+        </div>
+
         {/* Gap score chart */}
-        <div className="card">
+        <div className="card lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">
-            Regional gap scores
+            Gap scores by region
           </h2>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
@@ -86,8 +109,10 @@ export default function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
-        {/* Priority regions */}
+      {/* Priority regions + STAR modules */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <div className="card">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">
             Priority regions
@@ -112,18 +137,17 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* STAR modules coverage */}
-      <div className="card">
-        <h2 className="text-sm font-semibold text-slate-700 mb-1">STAR modules</h2>
-        <p className="text-xs text-slate-400 mb-4">7 capacity-building modules</p>
-        <div className="flex flex-wrap gap-2">
-          {(summary.star_modules ?? []).map(m => (
-            <span key={m} className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg">
-              {m}
-            </span>
-          ))}
+        <div className="card">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">STAR modules</h2>
+          <p className="text-xs text-slate-400 mb-4">7 capacity-building modules</p>
+          <div className="flex flex-wrap gap-2">
+            {(summary.star_modules ?? []).map(m => (
+              <span key={m} className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg">
+                {m}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
