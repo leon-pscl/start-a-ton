@@ -23,21 +23,23 @@ def list_teachers(
     region:  Optional[str]  = Query(None),
     subject: Optional[str]  = Query(None),
     trained: Optional[bool] = Query(None),
-    limit:   int            = Query(100, le=500),
+    limit:   int            = Query(50, le=1000),
     offset:  int            = 0,
     session: Session        = Depends(get_session),
 ):
     q = select(Teacher)
     if region:
         q = q.where(Teacher.region == region)
-    teachers = session.exec(q.offset(offset).limit(limit)).all()
 
+    # get total count for pagination
+    all_teachers = session.exec(q).all()
     trained_ids = set(
         r.teacher_id for r in session.exec(select(TrainingRecord)).all() if r.teacher_id
     )
 
-    result = []
-    for t in teachers:
+    # apply non-SQL filters first to get accurate total
+    filtered = []
+    for t in all_teachers:
         specs = _parse_list(t.subject_specializations)
         if subject and subject not in specs:
             continue
@@ -49,16 +51,26 @@ def list_teachers(
                 select(TrainingRecord).where(TrainingRecord.teacher_id == t.id)
             ).all()
         )
-        result.append({
+        filtered.append({
             **t.dict(),
-            "subject_specializations":  specs,
-            "grade_levels_taught":      _parse_list(t.grade_levels_taught),
-            "low_confidence_subjects":  _parse_list(t.low_confidence_subjects),
-            "unapplied_modules":        _parse_list(t.unapplied_modules),
-            "is_trained":               is_trained,
-            "training_count":           training_count,
+            "subject_specializations": specs,
+            "grade_levels_taught":     _parse_list(t.grade_levels_taught),
+            "low_confidence_subjects": _parse_list(t.low_confidence_subjects),
+            "unapplied_modules":       _parse_list(t.unapplied_modules),
+            "is_trained":              is_trained,
+            "training_count":          training_count,
         })
-    return result
+
+    total = len(filtered)
+    page_items = filtered[offset: offset + limit]
+
+    return {
+        "total":   total,
+        "offset":  offset,
+        "limit":   limit,
+        "pages":   -(-total // limit),  # ceiling division
+        "results": page_items,
+    }
 
 
 @router.get("/{teacher_id}")

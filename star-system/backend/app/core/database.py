@@ -3,8 +3,7 @@ from typing import Generator
 from pathlib import Path
 import os
 
-# Always resolves to backend/star.db regardless of where uvicorn is run from
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/star.db")
 
 engine = create_engine(

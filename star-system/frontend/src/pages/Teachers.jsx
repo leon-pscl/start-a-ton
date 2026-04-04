@@ -1,26 +1,33 @@
 import { useEffect, useState } from 'react'
 import { getTeachers } from '../lib/api'
 import { REGIONS, SUBJECTS } from '../lib/constants'
-import { Spinner, EmptyState, PageHeader, GapBadge, Select } from '../components/shared'
+import { Spinner, EmptyState, PageHeader, Select } from '../components/shared'
+
+const PAGE_SIZE = 50
 
 export default function TeachersPage() {
-  const [teachers, setTeachers] = useState([])
+  const [data, setData] = useState({ total: 0, pages: 0, results: [] })
   const [loading, setLoading] = useState(true)
   const [region, setRegion] = useState('')
   const [subject, setSubject] = useState('')
   const [trained, setTrained] = useState('')
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(0)
 
-  const load = () => {
+  const load = (pageIndex = 0) => {
     setLoading(true)
-    const params = {}
+    const params = { limit: PAGE_SIZE, offset: pageIndex * PAGE_SIZE }
     if (region) params.region = region
     if (subject) params.subject = subject
     if (trained !== '') params.trained = trained === 'yes'
-    getTeachers(params).then(setTeachers).finally(() => setLoading(false))
+    getTeachers(params)
+      .then(res => { setData(res); setPage(pageIndex) })
+      .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [region, subject, trained])
+  useEffect(() => { load(0) }, [region, subject, trained])
+
+  const teachers = data.results ?? []
 
   const visible = search
     ? teachers.filter(t =>
@@ -29,11 +36,14 @@ export default function TeachersPage() {
       )
     : teachers
 
+  const hasPrev = page > 0
+  const hasNext = page + 1 < data.pages
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <PageHeader
         title="Teacher records"
-        subtitle={`${teachers.length} records loaded`}
+        subtitle={`${data.total} total records`}
       />
 
       {/* Filters */}
@@ -47,26 +57,29 @@ export default function TeachersPage() {
         />
         <Select
           value={region}
-          onChange={setRegion}
+          onChange={v => { setRegion(v) }}
           options={REGIONS}
           placeholder="All regions"
           className="w-40 text-sm"
         />
         <Select
           value={subject}
-          onChange={setSubject}
+          onChange={v => { setSubject(v) }}
           options={SUBJECTS}
           placeholder="All subjects"
           className="w-40 text-sm"
         />
         <Select
           value={trained}
-          onChange={setTrained}
-          options={[{ value: 'yes', label: 'Trained' }, { value: 'no', label: 'Not trained' }]}
+          onChange={v => { setTrained(v) }}
+          options={[
+            { value: 'yes', label: 'Trained' },
+            { value: 'no',  label: 'Not trained' },
+          ]}
           placeholder="Any training"
           className="w-36 text-sm"
         />
-        <button onClick={load} className="btn-primary text-xs">Apply</button>
+        <button onClick={() => load(0)} className="btn-primary text-xs">Apply</button>
       </div>
 
       {/* Table */}
@@ -94,7 +107,9 @@ export default function TeachersPage() {
                         <span key={s} className="text-xs bg-star-50 text-star-700 px-2 py-0.5 rounded">{s}</span>
                       ))}
                       {(t.subject_specializations ?? []).length > 2 && (
-                        <span className="text-xs text-slate-400">+{t.subject_specializations.length - 2}</span>
+                        <span className="text-xs text-slate-400">
+                          +{t.subject_specializations.length - 2}
+                        </span>
                       )}
                     </div>
                   </td>
@@ -105,7 +120,9 @@ export default function TeachersPage() {
                         {t.training_count} module{t.training_count !== 1 ? 's' : ''}
                       </span>
                     ) : (
-                      <span className="text-xs bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">None</span>
+                      <span className="text-xs bg-slate-100 text-slate-400 px-2 py-0.5 rounded-full">
+                        None
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -123,8 +140,31 @@ export default function TeachersPage() {
               ))}
             </tbody>
           </table>
-          <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-400">
-            Showing {visible.length} of {teachers.length} records
+
+          {/* Pagination */}
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs text-slate-400">
+              Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, data.total)} of {data.total} records
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => load(page - 1)}
+                disabled={!hasPrev}
+                className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-40"
+              >
+                ← Prev
+              </button>
+              <span className="text-xs text-slate-500 flex items-center px-2">
+                Page {page + 1} of {data.pages}
+              </span>
+              <button
+                onClick={() => load(page + 1)}
+                disabled={!hasNext}
+                className="btn-secondary text-xs px-3 py-1.5 disabled:opacity-40"
+              >
+                Next →
+              </button>
+            </div>
           </div>
         </div>
       )}
