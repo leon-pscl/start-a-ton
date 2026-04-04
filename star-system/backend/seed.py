@@ -3,6 +3,7 @@ Run: python seed.py
 Populates the database with realistic mock data across all 17 STAR regions.
 """
 import json
+import os
 import random
 from datetime import datetime
 from sqlmodel import Session
@@ -48,7 +49,6 @@ GAP_PROFILES = {
     "low":      {"trained_pct": 0.80, "mismatch_pct": 0.10, "far_pct": 0.10, "count_range": (15, 35)},
 }
 
-# Assign gap profiles to regions for realistic variation
 REGION_GAP = {
     "BARMM": "high", "Region IX": "high", "Region VIII": "high", "Region IV-B": "high",
     "Region XIII": "moderate", "Region V": "moderate", "Region XII": "moderate",
@@ -63,6 +63,10 @@ def make_name():
 
 
 def seed():
+    if os.path.exists("star.db"):
+        print("star.db already exists. Skipping seed.")
+        return
+
     init_db()
     with Session(engine) as session:
         all_teachers = []
