@@ -1,199 +1,263 @@
 /**
  * PhilippinesMap.jsx
- * SVG-based choropleth map of the Philippines.
- * Each region is a simplified path colored by gap score level.
- *
- * Props:
- *   regions   — array from GET /analytics/regions
- *   onSelect  — callback(regionName) when a region is clicked
- *   selected  — currently selected region name (optional)
- *   compact   — boolean, renders smaller version for Dashboard
+ * Interactive Leaflet map with 3-level zoom:
+ *   Zoom 5-6  → Regions (colored by gap score)
+ *   Zoom 7-9  → Provinces (grey boundary only)
+ *   Zoom 10+  → Cities / municipalities (grey boundary only)
  */
+import { useEffect, useRef, useState } from 'react'
 
-const GAP_FILLS = {
-  high:     { default: '#fca5a5', hover: '#f87171', selected: '#dc2626' },
-  moderate: { default: '#fcd34d', hover: '#fbbf24', selected: '#d97706' },
-  low:      { default: '#86efac', hover: '#4ade80', selected: '#16a34a' },
-  none:     { default: '#e2e8f0', hover: '#cbd5e1', selected: '#94a3b8' },
+const GEOJSON_URLS = {
+  regions:   'https://raw.githubusercontent.com/faeldon/philippines-json-maps/master/geojson/regions/low/regions-10m.0.001.json',
+  provinces: 'https://raw.githubusercontent.com/faeldon/philippines-json-maps/master/geojson/provinces/low/provinces-10m.0.001.json',
+  cities:    'https://raw.githubusercontent.com/faeldon/philippines-json-maps/master/geojson/municities/low/municities-10m.0.001.json',
 }
 
-// Simplified SVG paths for all 17 Philippine regions
-// ViewBox: 0 0 400 800 — Luzon top, Visayas middle, Mindanao bottom
-const REGION_PATHS = {
-  'CAR': {
-    path: 'M148 68 L162 62 L175 70 L178 88 L168 98 L155 95 L144 84 Z',
-    labelX: 161, labelY: 82,
-  },
-  'Region I': {
-    path: 'M118 72 L136 65 L144 84 L138 105 L122 110 L108 98 L110 82 Z',
-    labelX: 124, labelY: 90,
-  },
-  'Region II': {
-    path: 'M175 58 L196 52 L210 65 L208 88 L192 96 L178 88 L175 70 Z',
-    labelX: 192, labelY: 76,
-  },
-  'NCR': {
-    path: 'M130 118 L148 112 L155 122 L148 134 L132 132 Z',
-    labelX: 142, labelY: 124,
-  },
-  'Region III': {
-    path: 'M122 110 L138 105 L155 95 L168 98 L172 115 L165 130 L148 134 L132 132 L118 124 Z',
-    labelX: 145, labelY: 115,
-  },
-  'Region IV-A': {
-    path: 'M128 136 L148 134 L165 130 L172 148 L160 165 L140 168 L122 158 L118 144 Z',
-    labelX: 145, labelY: 152,
-  },
-  'Region IV-B': {
-    path: 'M155 168 L175 162 L192 170 L196 188 L180 198 L160 194 L150 180 Z',
-    labelX: 173, labelY: 182,
-  },
-  'Region V': {
-    path: 'M172 148 L192 140 L212 148 L218 168 L205 182 L188 178 L175 162 Z',
-    labelX: 195, labelY: 162,
-  },
-  'Region VI': {
-    path: 'M118 208 L138 200 L155 210 L158 230 L142 242 L122 238 L112 224 Z',
-    labelX: 135, labelY: 222,
-  },
-  'Region VII': {
-    path: 'M165 218 L182 212 L196 222 L198 242 L182 250 L166 244 L158 230 Z',
-    labelX: 178, labelY: 232,
-  },
-  'Region VIII': {
-    path: 'M205 205 L222 198 L238 208 L240 230 L224 240 L208 234 L200 218 Z',
-    labelX: 220, labelY: 220,
-  },
-  'Region IX': {
-    path: 'M115 295 L132 288 L148 298 L150 318 L134 328 L116 322 L108 308 Z',
-    labelX: 129, labelY: 308,
-  },
-  'Region X': {
-    path: 'M158 285 L178 278 L195 288 L198 310 L180 320 L162 315 L152 300 Z',
-    labelX: 175, labelY: 300,
-  },
-  'Region XI': {
-    path: 'M195 318 L215 310 L232 320 L235 342 L218 352 L198 346 L188 332 Z',
-    labelX: 212, labelY: 332,
-  },
-  'Region XII': {
-    path: 'M148 325 L168 318 L185 328 L185 350 L168 360 L148 355 L138 340 Z',
-    labelX: 162, labelY: 340,
-  },
-  'Region XIII': {
-    path: 'M225 278 L245 270 L260 282 L258 305 L240 312 L222 305 L218 290 Z',
-    labelX: 240, labelY: 292,
-  },
-  'BARMM': {
-    path: 'M108 335 L128 328 L142 338 L140 360 L122 368 L105 360 L100 346 Z',
-    labelX: 121, labelY: 350,
-  },
+const REGION_NAME_MAP = {
+  'National Capital Region': 'NCR',
+  'Cordillera Administrative Region': 'CAR',
+  'Ilocos Region': 'Region I',
+  'Cagayan Valley': 'Region II',
+  'Central Luzon': 'Region III',
+  'CALABARZON': 'Region IV-A',
+  'MIMAROPA': 'Region IV-B',
+  'Bicol Region': 'Region V',
+  'Western Visayas': 'Region VI',
+  'Central Visayas': 'Region VII',
+  'Eastern Visayas': 'Region VIII',
+  'Zamboanga Peninsula': 'Region IX',
+  'Northern Mindanao': 'Region X',
+  'Davao Region': 'Region XI',
+  'SOCCSKSARGEN': 'Region XII',
+  'Caraga': 'Region XIII',
+  'Bangsamoro': 'BARMM',
+}
+
+const GAP_COLORS = {
+  high:     { fill: '#fca5a5', border: '#dc2626', selected: '#dc2626' },
+  moderate: { fill: '#fcd34d', border: '#d97706', selected: '#d97706' },
+  low:      { fill: '#86efac', border: '#16a34a', selected: '#16a34a' },
+  none:     { fill: '#e2e8f0', border: '#94a3b8', selected: '#64748b' },
+}
+
+const GREY = { fill: '#f1f5f9', border: '#cbd5e1' }
+
+function styleRegion(feature, selected, gapByRegion) {
+  const rawName   = feature.properties.REGION || feature.properties.name || ''
+  const canonical = REGION_NAME_MAP[rawName] || rawName
+  const data      = gapByRegion[canonical]
+  const level     = data?.gap_level ?? 'none'
+  const colors    = GAP_COLORS[level]
+  const isSel     = selected === canonical
+  return {
+    fillColor:   isSel ? colors.selected : colors.fill,
+    fillOpacity: isSel ? 0.9 : 0.7,
+    color:       isSel ? colors.selected : colors.border,
+    weight:      isSel ? 2.5 : 1,
+  }
 }
 
 export default function PhilippinesMap({ regions = [], onSelect, selected, compact = false }) {
-  const gapByRegion = {}
-  regions.forEach(r => {
-    gapByRegion[r.region] = { level: r.gap_level, score: r.gap_score, total: r.total_teachers }
-  })
+  const mapRef     = useRef(null)
+  const leafletRef = useRef(null)
+  const layersRef  = useRef({ regions: null, provinces: null, cities: null })
+  const gapRef     = useRef({})
+  const [zoom, setZoom]       = useState(6)
+  const [loading, setLoading] = useState(true)
+  const [tooltip, setTooltip] = useState(null)
 
-  const w = compact ? 220 : 380
-  const h = compact ? 440 : 760
-  const scale = compact ? 0.55 : 0.95
+  useEffect(() => {
+    const gapByRegion = {}
+    regions.forEach(r => { gapByRegion[r.region] = r })
+    gapRef.current = gapByRegion
+  }, [regions])
+
+  useEffect(() => {
+    if (leafletRef.current) return
+
+    import('leaflet').then(L => {
+      const map = L.map(mapRef.current, {
+        center: [12.5, 122.5],
+        zoom: compact ? 5 : 6,
+        zoomControl: !compact,
+        scrollWheelZoom: true,
+        dragging: true,
+        doubleClickZoom: true,
+        attributionControl: false,
+      })
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+      }).addTo(map)
+
+      leafletRef.current = { map, L }
+      map.on('zoomend', () => setZoom(map.getZoom()))
+
+      Promise.all([
+        fetch(GEOJSON_URLS.regions).then(r => r.json()),
+        fetch(GEOJSON_URLS.provinces).then(r => r.json()),
+        fetch(GEOJSON_URLS.cities).then(r => r.json()),
+      ]).then(([regionsGeo, provincesGeo, citiesGeo]) => {
+
+        // Region layer
+        layersRef.current.regions = L.geoJSON(regionsGeo, {
+          style: (feature) => styleRegion(feature, null, gapRef.current),
+          onEachFeature: (feature, layer) => {
+            const rawName   = feature.properties.REGION || feature.properties.name || ''
+            const canonical = REGION_NAME_MAP[rawName] || rawName
+            layer.on({
+              mouseover: (e) => {
+                e.target.setStyle({ weight: 2.5, fillOpacity: 0.9 })
+                const data = gapRef.current[canonical]
+                setTooltip({
+                  name:  canonical,
+                  level: data?.gap_level ?? 'none',
+                  score: data ? Math.round(data.gap_score * 100) : null,
+                  total: data?.total_teachers ?? 0,
+                  sub:   false,
+                })
+              },
+              mouseout: (e) => {
+                layersRef.current.regions?.resetStyle(e.target)
+                setTooltip(null)
+              },
+              click: () => onSelect?.(canonical),
+            })
+          },
+        }).addTo(map)
+
+        // Province layer
+        layersRef.current.provinces = L.geoJSON(provincesGeo, {
+          style: { fillColor: GREY.fill, fillOpacity: 0.5, color: GREY.border, weight: 1 },
+          onEachFeature: (feature, layer) => {
+            const name = feature.properties.NAME_2 || feature.properties.name || 'Province'
+            layer.on({
+              mouseover: () => setTooltip({ name, sub: true }),
+              mouseout:  () => setTooltip(null),
+            })
+          },
+        })
+
+        // City layer
+        layersRef.current.cities = L.geoJSON(citiesGeo, {
+          style: { fillColor: GREY.fill, fillOpacity: 0.4, color: GREY.border, weight: 0.5 },
+          onEachFeature: (feature, layer) => {
+            const name = feature.properties.NAME_3 || feature.properties.name || 'City/Municipality'
+            layer.on({
+              mouseover: () => setTooltip({ name, sub: true }),
+              mouseout:  () => setTooltip(null),
+            })
+          },
+        })
+
+        setLoading(false)
+      }).catch(err => {
+        console.error('GeoJSON load failed:', err)
+        setLoading(false)
+      })
+    })
+
+    return () => {
+      if (leafletRef.current?.map) {
+        leafletRef.current.map.remove()
+        leafletRef.current = null
+      }
+    }
+  }, [])
+
+  // Update region colors when gap data or selection changes
+  useEffect(() => {
+    const layer = layersRef.current.regions
+    if (!layer) return
+    layer.setStyle((feature) => styleRegion(feature, selected, gapRef.current))
+  }, [regions, selected])
+
+  // Toggle layers by zoom
+  useEffect(() => {
+    const { map } = leafletRef.current ?? {}
+    const { regions: rL, provinces: pL, cities: cL } = layersRef.current
+    if (!map || !rL || !pL || !cL) return
+
+    if (zoom >= 10) {
+      if (!map.hasLayer(cL)) map.addLayer(cL)
+      if (!map.hasLayer(pL)) map.addLayer(pL)
+      if (map.hasLayer(rL))  map.removeLayer(rL)
+    } else if (zoom >= 7) {
+      if (!map.hasLayer(pL)) map.addLayer(pL)
+      if (map.hasLayer(cL))  map.removeLayer(cL)
+      if (map.hasLayer(rL))  map.removeLayer(rL)
+    } else {
+      if (!map.hasLayer(rL)) map.addLayer(rL)
+      if (map.hasLayer(pL))  map.removeLayer(pL)
+      if (map.hasLayer(cL))  map.removeLayer(cL)
+    }
+  }, [zoom])
 
   return (
-    <div className="relative">
-      <svg
-        width="100%"
-        viewBox="0 0 400 800"
-        style={{ maxHeight: compact ? 380 : 680 }}
-      >
-        <g transform={`scale(${scale}) translate(${compact ? 30 : 10}, ${compact ? 10 : 5})`}>
-          {Object.entries(REGION_PATHS).map(([regionName, { path, labelX, labelY }]) => {
-            const data   = gapByRegion[regionName]
-            const level  = data?.level ?? 'none'
-            const fills  = GAP_FILLS[level]
-            const isSelected = selected === regionName
-            const fill   = isSelected ? fills.selected : fills.default
+    <div className="relative w-full" style={{ height: compact ? 300 : 580 }}>
 
-            return (
-              <g
-                key={regionName}
-                onClick={() => onSelect?.(regionName)}
-                style={{ cursor: onSelect ? 'pointer' : 'default' }}
-                className="region-group"
-              >
-                <path
-                  d={path}
-                  fill={fill}
-                  stroke="white"
-                  strokeWidth={isSelected ? 2.5 : 1.5}
-                  strokeLinejoin="round"
-                  style={{ transition: 'fill 0.15s' }}
-                  onMouseEnter={e => {
-                    if (!isSelected) e.target.setAttribute('fill', fills.hover)
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected) e.target.setAttribute('fill', fill)
-                  }}
-                />
-                {!compact && (
-                  <text
-                    x={labelX}
-                    y={labelY}
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    fontSize={regionName.length > 10 ? 7 : 8}
-                    fontWeight={isSelected ? '700' : '500'}
-                    fill={isSelected || level === 'high' ? 'white' : '#1e293b'}
-                    style={{ pointerEvents: 'none', userSelect: 'none' }}
-                  >
-                    {regionName === 'Region IV-A' ? 'IV-A' :
-                     regionName === 'Region IV-B' ? 'IV-B' :
-                     regionName.replace('Region ', 'R')}
-                  </text>
-                )}
-              </g>
-            )
-          })}
-        </g>
+      {/* Loading overlay */}
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-10 rounded-xl">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-6 h-6 border-2 border-star-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-slate-400">Loading map data...</p>
+          </div>
+        </div>
+      )}
 
-        {/* Legend */}
-        {!compact && (
-          <g transform="translate(270, 620)">
-            <rect x="0" y="0" width="115" height="88" rx="6"
-              fill="white" stroke="#e2e8f0" strokeWidth="1" />
-            <text x="10" y="18" fontSize="9" fontWeight="600" fill="#475569">Gap level</text>
-            {[
-              { level: 'high',     label: 'High (≥70%)',     fill: '#fca5a5' },
-              { level: 'moderate', label: 'Moderate (40–69%)', fill: '#fcd34d' },
-              { level: 'low',      label: 'Low (<40%)',       fill: '#86efac' },
-              { level: 'none',     label: 'No data',          fill: '#e2e8f0' },
-            ].map(({ label, fill }, i) => (
-              <g key={label} transform={`translate(10, ${30 + i * 16})`}>
-                <rect width="10" height="10" rx="2" fill={fill} stroke="#cbd5e1" strokeWidth="0.5" />
-                <text x="16" y="9" fontSize="8" fill="#475569">{label}</text>
-              </g>
-            ))}
-          </g>
-        )}
-      </svg>
+      {/* Hover tooltip */}
+      {tooltip && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-md text-xs flex items-center gap-2 whitespace-nowrap">
+            <span className="font-medium text-slate-700">{tooltip.name}</span>
+            {tooltip.sub ? (
+              <span className="text-slate-400">No teacher data at this level yet</span>
+            ) : tooltip.score !== null ? (
+              <>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-500">Gap: {tooltip.score}%</span>
+                <span className="text-slate-300">·</span>
+                <span className="text-slate-500">{tooltip.total} teachers</span>
+              </>
+            ) : (
+              <span className="text-slate-400">No data</span>
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* Compact legend */}
-      {compact && (
-        <div className="flex gap-3 justify-center mt-2 flex-wrap">
+      {/* Zoom level indicator */}
+      {!compact && (
+        <div className="absolute bottom-3 left-3 z-20 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-500 shadow-sm">
+          {zoom < 7 ? 'Viewing: Regions'
+            : zoom < 10 ? 'Viewing: Provinces'
+            : 'Viewing: Cities / municipalities'}
+          <span className="text-slate-300 ml-1">· zoom {zoom}</span>
+        </div>
+      )}
+
+      {/* Legend */}
+      {!compact && (
+        <div className="absolute bottom-3 right-3 z-20 bg-white border border-slate-200 rounded-lg px-3 py-2.5 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500 mb-2">Gap level</p>
           {[
-            { label: 'High',     color: '#fca5a5' },
-            { label: 'Moderate', color: '#fcd34d' },
-            { label: 'Low',      color: '#86efac' },
+            { label: 'High (>=70%)',       color: '#fca5a5' },
+            { label: 'Moderate (40-69%)', color: '#fcd34d' },
+            { label: 'Low (<40%)',         color: '#86efac' },
+            { label: 'No data',            color: '#e2e8f0' },
           ].map(({ label, color }) => (
-            <span key={label} className="flex items-center gap-1 text-xs text-slate-500">
-              <span className="w-2.5 h-2.5 rounded-sm inline-block border border-slate-200"
+            <div key={label} className="flex items-center gap-1.5 mb-1 last:mb-0">
+              <span className="w-3 h-3 rounded-sm border border-slate-200 inline-block shrink-0"
                 style={{ background: color }} />
-              {label}
-            </span>
+              <span className="text-xs text-slate-500">{label}</span>
+            </div>
           ))}
         </div>
       )}
+
+      {/* Map container */}
+      <div ref={mapRef} className="w-full h-full rounded-xl overflow-hidden" style={{ zIndex: 0 }} />
     </div>
   )
 }
