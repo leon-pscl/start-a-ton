@@ -45,6 +45,7 @@ export default function TeachersPage() {
     if (region) params.region = region
     if (subject) params.subject = subject
     if (trained !== '') params.trained = trained === 'yes'
+    if (search) params.search = search
     getTeachers(params)
       .then(res => { setData(res); setPage(pageIndex) })
       .finally(() => setLoading(false))
@@ -55,14 +56,6 @@ export default function TeachersPage() {
 
   // Get teachers for display (apply local text search)
   const teachers = data.results ?? []
-
-  // Filter by search text (name or school)
-  const visible = search
-    ? teachers.filter(t =>
-        t.full_name.toLowerCase().includes(search.toLowerCase()) ||
-        (t.school_name ?? '').toLowerCase().includes(search.toLowerCase())
-      )
-    : teachers
 
   // Pagination controls
   const hasPrev = page > 0
@@ -85,6 +78,7 @@ export default function TeachersPage() {
           placeholder="Search by name or school..."
           value={search}
           onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && load(0)}
           className="input flex-1 min-w-48 text-sm"
         />
         {/* Region filter */}
@@ -120,25 +114,29 @@ export default function TeachersPage() {
       {/* ----------------------------------------------------------------------- */}
       {/* Teachers Table                                                          */}
       {/* ----------------------------------------------------------------------- */}
-      {loading ? <Spinner /> : visible.length === 0 ? (
+      {loading ? <Spinner /> : teachers.length === 0 ? (
         <EmptyState message="No teachers match the current filters" />
       ) : (
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                {['Name', 'Region', 'School', 'Specialization', 'Position', 'Training', 'Source'].map(h => (
+                {['Name', 'Region', 'Province', 'City', 'School', 'Specialization', 'Position', 'Training', 'Source'].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {visible.map(t => (
+              {teachers.map(t => (
                 <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                   {/* Name */}
                   <td className="px-4 py-3 font-medium text-slate-700 whitespace-nowrap">{t.full_name}</td>
                   {/* Region */}
                   <td className="px-4 py-3 text-slate-500 text-xs">{t.region}</td>
+                  {/* Province */}
+                  <td className="px-4 py-3 text-slate-500 text-xs">{t.province ?? '—'}</td>
+                  {/* City */}
+                  <td className="px-4 py-3 text-slate-500 text-xs">{t.city ?? '—'}</td>
                   {/* School (truncated) */}
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-36 truncate">{t.school_name ?? '—'}</td>
                   {/* Subject specializations (as tags) */}

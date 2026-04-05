@@ -150,23 +150,25 @@ class TeacherBase(SQLModel):
     All fields are optional except full_name and region to allow
     partial data from various import sources.
     """
-    full_name: str                                    # Required: teacher's full name
-    region: str                                       # Required: Philippine region (canonical form)
-    division: Optional[str] = None                   # Schools Division Office
-    school_name: Optional[str] = None                # School name
-    school_type: Optional[str] = None                # "public" or "private"
-    position: Optional[str] = None                    # Teaching position (Teacher I, II, etc.)
-    years_experience: Optional[int] = None           # Years of teaching experience
-    highest_qualification: Optional[str] = None      # Highest degree attained
-    subject_specializations: Optional[str] = None    # JSON list of subjects taught
-    grade_levels_taught: Optional[str] = None        # JSON list of grade levels
-    low_confidence_subjects: Optional[str] = None    # JSON list of subjects teacher lacks confidence in
-    unapplied_modules: Optional[str] = None           # JSON list of STAR modules not yet applied
-    distance_to_training: Optional[str] = None       # Travel time to training center
-    preferred_format: Optional[str] = None            # Preferred training format
-    source: str = "self-registry"                    # Data source: "self-registry", "sf7", "star-log"
-    data_confidence: float = 1.0                      # Confidence score (0-1) based on source reliability
-    created_at: Optional[datetime] = None             # Record creation timestamp
+    full_name: str
+    region: str
+    province: Optional[str] = None    # ← new
+    city: Optional[str] = None        # ← new
+    division: Optional[str] = None
+    school_name: Optional[str] = None
+    school_type: Optional[str] = None
+    position: Optional[str] = None
+    years_experience: Optional[int] = None
+    highest_qualification: Optional[str] = None
+    subject_specializations: Optional[str] = None
+    grade_levels_taught: Optional[str] = None
+    low_confidence_subjects: Optional[str] = None
+    unapplied_modules: Optional[str] = None
+    distance_to_training: Optional[str] = None
+    preferred_format: Optional[str] = None
+    source: str = "self-registry"
+    data_confidence: float = 1.0
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None             # Last update timestamp
 
 
@@ -193,12 +195,13 @@ class TeacherCreate(TeacherBase):
     data_confidence: float = 1.0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    # Accept lists from frontend — teachers.py will json.dumps() them before saving
     subject_specializations: Optional[List[str]] = []
     grade_levels_taught: Optional[List[str]] = []
     low_confidence_subjects: Optional[List[str]] = []
     unapplied_modules: Optional[List[str]] = []
     trainings_attended: Optional[List[str]] = []
+    province: Optional[str] = None    # ← new
+    city: Optional[str] = None        # ← new
 
 
 class TeacherRead(TeacherBase):

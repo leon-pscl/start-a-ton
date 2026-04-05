@@ -14,7 +14,7 @@
 
 import { useState } from 'react'
 import { registerTeacher } from '../lib/api'
-import { REGIONS, SUBJECTS, STAR_MODULES } from '../lib/constants'
+import { REGIONS, SUBJECTS, STAR_MODULES, PROVINCES, CITIES } from '../lib/constants'
 import { CheckboxGroup, Select } from '../components/shared'
 
 // ---------------------------------------------------------------------------
@@ -41,7 +41,8 @@ const FORMATS = ['face-to-face', 'blended', 'online']
 
 /** Initial form state (empty) */
 const INITIAL = {
-  full_name: '', region: '', division: '', school_name: '', school_type: 'public',
+  full_name: '', region: '', province: '', city: '',
+  division: '', school_name: '', school_type: 'public',
   position: '', years_experience: '', highest_qualification: '',
   subject_specializations: [], grade_levels_taught: [],
   trainings_attended: [],
@@ -231,6 +232,20 @@ export default function Register() {
 // ---------------------------------------------------------------------------
 
 function Step1({ form, set }) {
+  const handleRegion = (v) => {
+    set('region', v)
+    set('province', '')
+    set('city', '')
+    set('division', '')
+  }
+  const handleProvince = (v) => {
+    set('province', v)
+    set('city', '')
+  }
+
+  const provinceOptions = form.region ? (PROVINCES[form.region] || []) : []
+  const cityOptions = form.province ? (CITIES[form.province] || []) : []
+
   return (
     <div className="flex flex-col gap-4">
       <Field label="Full name *">
@@ -244,9 +259,27 @@ function Step1({ form, set }) {
       <Field label="Region *">
         <Select
           value={form.region}
-          onChange={v => set('region', v)}
+          onChange={handleRegion}
           options={REGIONS}
           placeholder="Select your region"
+        />
+      </Field>
+      <Field label="Province">
+        <Select
+          value={form.province}
+          onChange={handleProvince}
+          options={provinceOptions}
+          placeholder={form.region ? 'Select province' : 'Select region first'}
+          disabled={!form.region}
+        />
+      </Field>
+      <Field label="City / Municipality">
+        <Select
+          value={form.city}
+          onChange={v => set('city', v)}
+          options={cityOptions}
+          placeholder={form.province ? 'Select city' : 'Select province first'}
+          disabled={!form.province}
         />
       </Field>
       <Field label="Division / Schools Division Office">

@@ -233,3 +233,112 @@ def _empty_gap(region: str) -> dict:
             "recency_score":  0.0,
         },
     }
+    
+def compute_province_gaps(session: Session) -> list[dict]:
+    """Compute gap scores grouped by province."""
+    teachers = session.exec(select(Teacher)).all()
+    trained_ids = set(
+        r.teacher_id for r in session.exec(select(TrainingRecord)).all()
+        if r.teacher_id
+    )
+    recent_trained_ids = set(
+        r.teacher_id for r in session.exec(select(TrainingRecord)).all()
+        if r.teacher_id and r.year and r.year >= CURRENT_SY_START
+    )
+
+    # Group teachers by province
+    by_province: dict[str, list] = {}
+    for t in teachers:
+        if not t.province:
+            continue
+        key = (t.region, t.province)
+        by_province.setdefault(key, []).append(t)
+
+    results = []
+    for (region, province), group in by_province.items():
+        total = len(group)
+        untrained = sum(1 for t in group if t.id not in trained_ids)
+        not_recent = sum(1 for t in group if t.id not in recent_trained_ids)
+        far = sum(1 for t in group if t.distance_to_training and '3hrs' in t.distance_to_training)
+
+        mismatch = 0
+        for t in group:
+            specs     = _parse_json_field(t.subject_specializations)
+            low_conf  = _parse_json_field(t.low_confidence_subjects)
+            if low_conf and specs:
+                if any(s not in specs for s in low_conf):
+                    mismatch += 1
+
+        gap = (
+            WEIGHTS['coverage'] * (untrained / total) +
+            WEIGHTS['mismatch'] * (mismatch / total) +
+            WEIGHTS['recency']  * (not_recent / total) +
+            WEIGHTS['distance'] * (far / total)
+        )
+
+        results.append({
+            'region':          region,
+            'province':        province,
+            'total_teachers':  total,
+            'trained_count':   total - untrained,
+            'untrained_count': untrained,
+            'gap_score':       round(gap, 3),
+            'gap_level':       _level(gap),
+        })
+
+    return sorted(results, key=lambda x: -x['gap_score'])
+
+
+def compute_city_gaps(session: Session) -> list[dict]:
+    """Compute gap scores grouped by city/municipality."""
+    teachers = session.exec(select(Teacher)).all()
+    trained_ids = set(
+        r.teacher_id for r in session.exec(select(TrainingRecord)).all()
+        if r.teacher_id
+    )
+    recent_trained_ids = set(
+        r.teacher_id for r in session.exec(select(TrainingRecord)).all()
+        if r.teacher_id and r.year and r.year >= CURRENT_SY_START
+    )
+
+    by_city: dict[str, list] = {}
+    for t in teachers:
+        if not t.city:
+            continue
+        key = (t.region, t.province or '', t.city)
+        by_city.setdefault(key, []).append(t)
+
+    results = []
+    for (region, province, city), group in by_city.items():
+        total = len(group)
+        untrained = sum(1 for t in group if t.id not in trained_ids)
+        not_recent = sum(1 for t in group if t.id not in recent_trained_ids)
+        far = sum(1 for t in group if t.distance_to_training and '3hrs' in t.distance_to_training)
+
+        mismatch = 0
+        for t in group:
+            specs    = _parse_json_field(t.subject_specializations)
+            low_conf = _parse_json_field(t.low_confidence_subjects)
+            if low_conf and specs:
+                if any(s not in specs for s in low_conf):
+                    mismatch += 1
+
+        gap = (
+            WEIGHTS['coverage'] * (untrained / total) +
+            WEIGHTS['mismatch'] * (mismatch / total) +
+            WEIGHTS['recency']  * (not_recent / total) +
+            WEIGHTS['distance'] * (far / total)
+        )
+
+        results.append({
+            'region':          region,
+            'province':        province,
+            'city':            city,
+            'total_teachers':  total,
+            'trained_count':   total - untrained,
+            'untrained_count': untrained,
+            'gap_score':       round(gap, 3),
+            'gap_level':       _level(gap),
+        })
+
+    return sorted(results, key=lambda x: -x['gap_score'])

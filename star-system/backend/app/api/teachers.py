@@ -55,6 +55,7 @@ def list_teachers(
     region:  Optional[str]  = Query(None),   # Filter by region (optional)
     subject: Optional[str]  = Query(None),   # Filter by subject specialization (optional)
     trained: Optional[bool] = Query(None),   # Filter by training status (optional)
+    search: Optional[str]   = Query(None),   # Search by name or school (optional)
     limit:   int            = Query(50, le=1000),  # Max results per page
     offset:  int            = 0,             # Pagination offset
     session: Session        = Depends(get_session),
@@ -90,6 +91,12 @@ def list_teachers(
     for t in all_teachers:
         # Parse JSON fields for filtering
         specs = _parse_list(t.subject_specializations)
+
+        # Filter by search (name or school)
+        if search:
+            haystack = f"{t.full_name or ''} {t.school_name or ''}".lower()
+            if search.lower() not in haystack:
+                continue
 
         # Filter by subject specialization
         if subject and subject not in specs:
@@ -196,6 +203,8 @@ def register_teacher(payload: TeacherCreate, session: Session = Depends(get_sess
     teacher = Teacher(
         full_name=payload.full_name,
         region=payload.region,
+        province=payload.province,       # ← new
+        city=payload.city,               # ← new
         division=payload.division,
         school_name=payload.school_name,
         school_type=payload.school_type,

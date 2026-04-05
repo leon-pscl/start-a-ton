@@ -21,7 +21,7 @@ import csv, io, json
 from datetime import datetime
 from app.core.database import get_session
 from app.models.models import Teacher, TrainingRecord, STAR_MODULES
-from app.services.gap_score import compute_all_regions, compute_region_gap
+from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps
 
 # Create router with /analytics prefix
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -187,3 +187,12 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+    
+@router.get("/provinces")
+def get_provinces(session: Session = Depends(get_session)):
+    return compute_province_gaps(session)
+
+
+@router.get("/cities")
+def get_cities(session: Session = Depends(get_session)):
+    return compute_city_gaps(session)

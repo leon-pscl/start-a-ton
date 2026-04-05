@@ -152,3 +152,6 @@ export const exportCSV = (region = '') => {
   const qs = region ? `?region=${encodeURIComponent(region)}` : ''
   window.open(`${BASE}/analytics/export/csv${qs}`, '_blank')
 }
+
+export const getProvinces = () => request('/analytics/provinces')
+export const getCities    = () => request('/analytics/cities')

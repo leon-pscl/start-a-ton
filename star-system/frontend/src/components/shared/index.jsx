@@ -161,13 +161,15 @@ export function PageHeader({ title, subtitle, actions }) {
  * @param {Array} props.options - Options as {value, label} or strings
  * @param {string} [props.placeholder] - Placeholder text for empty option
  * @param {string} [props.className] - Additional CSS classes
+ * @param {boolean} [props.disabled] - Disable the select
  */
-export function Select({ value, onChange, options, placeholder, className = '' }) {
+export function Select({ value, onChange, options, placeholder, className = '', disabled }) {
   return (
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className={`input ${className}`}
+      disabled={disabled}
+      className={`input ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       {/* Placeholder option (empty value) */}
       {placeholder && <option value="">{placeholder}</option>}
