@@ -1,6 +1,31 @@
+/**
+ * Sidebar Navigation Component
+ *
+ * Main navigation sidebar for the STAR system.
+ * Provides links to all major sections of the application:
+ * - Dashboard (overview)
+ * - Regions (gap analysis map)
+ * - Teachers (teacher database)
+ * - Import (data upload)
+ * - Register (self-registration portal)
+ *
+ * Uses React Router's NavLink for active state styling.
+ */
+
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 
+// ---------------------------------------------------------------------------
+// Navigation Configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Navigation items for the sidebar.
+ * Each item has:
+ * - to: Route path
+ * - label: Display text
+ * - icon: SVG icon component
+ */
 const NAV = [
   { to: '/dashboard', label: 'Overview',       icon: GridIcon },
   { to: '/regions',   label: 'Regional gaps',  icon: MapIcon },
@@ -9,12 +34,17 @@ const NAV = [
   { to: '/register',  label: 'Teacher portal', icon: PersonIcon },
 ]
 
+// ---------------------------------------------------------------------------
+// Sidebar Component
+// ---------------------------------------------------------------------------
+
 export default function Sidebar() {
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-slate-100 flex flex-col">
-      {/* Logo */}
+      {/* Logo and branding */}
       <div className="px-5 py-5 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
+          {/* STAR logo */}
           <div className="w-7 h-7 bg-star-600 rounded-lg flex items-center justify-center">
             <span className="text-white text-xs font-bold">S</span>
           </div>
@@ -25,17 +55,21 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
+      {/* Navigation links */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
         {NAV.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
+            /**
+             * Apply active styling when the route matches.
+             * Uses clsx for conditional class merging.
+             */
             className={({ isActive }) => clsx(
               'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
               isActive
-                ? 'bg-star-50 text-star-700 font-medium'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                ? 'bg-star-50 text-star-700 font-medium'      // Active state
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'  // Inactive
             )}
           >
             <Icon className="w-4 h-4" />
@@ -44,7 +78,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* Footer with version info */}
       <div className="px-5 py-4 border-t border-slate-100">
         <p className="text-[10px] text-slate-400 leading-relaxed">
           STAR Integrated Data System<br />
@@ -55,6 +89,11 @@ export default function Sidebar() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Icon Components
+// ---------------------------------------------------------------------------
+
+/** Grid icon - used for Dashboard/Overview */
 function GridIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,6 +103,7 @@ function GridIcon({ className }) {
   )
 }
 
+/** Map icon - used for Regions */
 function MapIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,6 +113,7 @@ function MapIcon({ className }) {
   )
 }
 
+/** Users icon - used for Teachers */
 function UsersIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,6 +123,7 @@ function UsersIcon({ className }) {
   )
 }
 
+/** Upload icon - used for Import */
 function UploadIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,6 +133,7 @@ function UploadIcon({ className }) {
   )
 }
 
+/** Person icon - used for Registration portal */
 function PersonIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">

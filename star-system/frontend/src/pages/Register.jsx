@@ -1,16 +1,45 @@
+/**
+ * Teacher Registration Page Component
+ *
+ * Self-registration portal for teachers to submit their profile data.
+ * Uses a multi-step wizard interface:
+ * 1. Personal info (name, region, division, school)
+ * 2. Teaching profile (position, experience, subjects, grade levels)
+ * 3. Training history (STAR modules attended)
+ * 4. Needs assessment (confidence gaps, unapplied modules, distance, format)
+ *
+ * Data is submitted to the teachers API endpoint.
+ * On success, displays a confirmation with reference ID.
+ */
+
 import { useState } from 'react'
 import { registerTeacher } from '../lib/api'
 import { REGIONS, SUBJECTS, STAR_MODULES } from '../lib/constants'
 import { CheckboxGroup, Select } from '../components/shared'
 
+// ---------------------------------------------------------------------------
+// Wizard Configuration
+// ---------------------------------------------------------------------------
+
+/** Step labels for the progress indicator */
 const STEPS = ['Personal info', 'Teaching profile', 'Training history', 'Needs assessment']
 
+/** Dropdown options for position */
 const POSITIONS = ['Teacher I', 'Teacher II', 'Teacher III', 'Master Teacher I', 'Master Teacher II']
+
+/** Dropdown options for educational qualification */
 const QUALIFICATIONS = ['BSEd', 'MEd', 'PhD', 'Other']
+
+/** Grade level options */
 const GRADE_LEVELS = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'College']
+
+/** Travel time options */
 const DISTANCES = ['<1hr', '1-3hrs', '3hrs+']
+
+/** Training format preferences */
 const FORMATS = ['face-to-face', 'blended', 'online']
 
+/** Initial form state (empty) */
 const INITIAL = {
   full_name: '', region: '', division: '', school_name: '', school_type: 'public',
   position: '', years_experience: '', highest_qualification: '',
@@ -20,23 +49,45 @@ const INITIAL = {
   distance_to_training: '', preferred_format: '',
 }
 
-export default function Register() {
-  const [step, setStep] = useState(0)
-  const [form, setForm] = useState(INITIAL)
-  const [submitted, setSubmitted] = useState(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+// ---------------------------------------------------------------------------
+// Main Registration Component
+// ---------------------------------------------------------------------------
 
+export default function Register() {
+  // Form state
+  const [step, setStep] = useState(0)              // Current wizard step
+  const [form, setForm] = useState(INITIAL)       // Form data
+  const [submitted, setSubmitted] = useState(null) // Success result
+  const [error, setError] = useState('')          // Error message
+  const [loading, setLoading] = useState(false)   // Submission in progress
+
+  /**
+   * Update a single form field.
+   */
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
+  /**
+   * Navigate to next step (with validation).
+   */
   const next = () => { setError(''); setStep(s => Math.min(s + 1, STEPS.length - 1)) }
+
+  /**
+   * Navigate to previous step.
+   */
   const back = () => { setError(''); setStep(s => Math.max(s - 1, 0)) }
 
+  /**
+   * Check if current step can proceed.
+   * Only validates step 0 (requires name and region).
+   */
   const canNext = () => {
     if (step === 0) return form.full_name.trim() && form.region
     return true
   }
 
+  /**
+   * Submit the registration form to the API.
+   */
   const submit = async () => {
     setLoading(true)
     setError('')
@@ -54,10 +105,14 @@ export default function Register() {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Success Screen
+  // ---------------------------------------------------------------------------
   if (submitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-star-50 to-slate-100 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 max-w-sm w-full text-center">
+          {/* Success checkmark */}
           <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -67,10 +122,12 @@ export default function Register() {
           <p className="text-sm text-slate-500 mb-5">
             Thank you, {submitted.full_name}. Your profile has been recorded.
           </p>
+          {/* Reference ID */}
           <div className="bg-slate-50 rounded-xl p-4 mb-6 text-left">
             <p className="text-xs text-slate-400 mb-1">Your reference ID</p>
             <p className="text-xs font-mono text-slate-700 break-all">{submitted.id}</p>
           </div>
+          {/* Register another */}
           <button
             onClick={() => { setSubmitted(null); setForm(INITIAL); setStep(0) }}
             className="btn-secondary w-full text-sm"
@@ -82,6 +139,9 @@ export default function Register() {
     )
   }
 
+  // ---------------------------------------------------------------------------
+  // Registration Form
+  // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-star-50 to-slate-100 flex items-start justify-center py-10 px-4">
       <div className="w-full max-w-xl">
@@ -101,17 +161,20 @@ export default function Register() {
           {STEPS.map((label, i) => (
             <div key={i} className="flex items-center">
               <div className="flex items-center gap-1.5">
+                {/* Step number/checkmark */}
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${
-                  i < step  ? 'bg-star-600 border-star-600 text-white'
-                  : i === step ? 'border-star-600 text-star-600 bg-white'
-                  : 'border-slate-200 text-slate-300 bg-white'
+                  i < step  ? 'bg-star-600 border-star-600 text-white'      // Completed
+                  : i === step ? 'border-star-600 text-star-600 bg-white'   // Current
+                  : 'border-slate-200 text-slate-300 bg-white'              // Upcoming
                 }`}>
                   {i < step ? '✓' : i + 1}
                 </div>
+                {/* Step label (hidden on small screens) */}
                 <span className={`text-xs font-medium hidden sm:block ${
                   i <= step ? 'text-star-700' : 'text-slate-300'
                 }`}>{label}</span>
               </div>
+              {/* Connector line */}
               {i < STEPS.length - 1 && (
                 <div className={`h-px w-6 mx-2 transition-colors ${i < step ? 'bg-star-400' : 'bg-slate-200'}`} />
               )}
@@ -123,17 +186,20 @@ export default function Register() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <h2 className="text-base font-semibold text-slate-800 mb-5">{STEPS[step]}</h2>
 
+          {/* Step content */}
           {step === 0 && <Step1 form={form} set={set} />}
           {step === 1 && <Step2 form={form} set={set} />}
           {step === 2 && <Step3 form={form} set={set} />}
           {step === 3 && <Step4 form={form} set={set} />}
 
+          {/* Error message */}
           {error && (
             <p className="mt-4 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
 
+          {/* Navigation buttons */}
           <div className="flex justify-between mt-6 pt-4 border-t border-slate-100">
             {step > 0
               ? <button onClick={back} className="btn-secondary">← Back</button>
@@ -150,6 +216,7 @@ export default function Register() {
           </div>
         </div>
 
+        {/* Privacy notice */}
         <p className="text-center text-xs text-slate-400 mt-5 leading-relaxed">
           Your data is collected for STAR program planning only.<br />
           It will not be shared outside DOST-SEI without your consent.
@@ -160,8 +227,9 @@ export default function Register() {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 — Personal info
+// Step 1 — Personal Info
 // ---------------------------------------------------------------------------
+
 function Step1({ form, set }) {
   return (
     <div className="flex flex-col gap-4">
@@ -209,8 +277,9 @@ function Step1({ form, set }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 — Teaching profile
+// Step 2 — Teaching Profile
 // ---------------------------------------------------------------------------
+
 function Step2({ form, set }) {
   return (
     <div className="flex flex-col gap-5">
@@ -258,8 +327,9 @@ function Step2({ form, set }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 — Training history
+// Step 3 — Training History
 // ---------------------------------------------------------------------------
+
 function Step3({ form, set }) {
   return (
     <div className="flex flex-col gap-4">
@@ -282,8 +352,9 @@ function Step3({ form, set }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 4 — Needs assessment
+// Step 4 — Needs Assessment
 // ---------------------------------------------------------------------------
+
 function Step4({ form, set }) {
   return (
     <div className="flex flex-col gap-5">
@@ -322,6 +393,13 @@ function Step4({ form, set }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Field Component
+// ---------------------------------------------------------------------------
+
+/**
+ * Form field wrapper with label.
+ */
 function Field({ label, children }) {
   return (
     <div className="flex flex-col gap-1.5">

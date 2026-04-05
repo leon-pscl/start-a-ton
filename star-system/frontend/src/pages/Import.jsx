@@ -1,29 +1,68 @@
+/**
+ * Import Page Component
+ *
+ * Provides an interface for bulk data imports from external sources.
+ * Supports two file types:
+ * 1. SF7/BEIS exports: DepEd School Form 7 teacher data
+ * 2. STAR training logs: Training attendance from partner universities
+ *
+ * Features:
+ * - File upload with drag-and-drop UI
+ * - Import result summary (parsed, imported, flagged rows)
+ * - Import history log
+ * - Column mapping guide for expected formats
+ *
+ * Files are processed by the backend importer which:
+ * - Fuzzy-matches column names to expected fields
+ * - Normalizes region/subject names
+ * - Deduplicates teachers by name+region
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { uploadFile, getImportLogs } from '../lib/api'
 import { PageHeader, Spinner } from '../components/shared'
 
+// ---------------------------------------------------------------------------
+// Source Type Configuration
+// ---------------------------------------------------------------------------
+
+/**
+ * Supported import source types with descriptions.
+ */
 const SOURCE_TYPES = [
   { value: 'sf7', label: 'SF7 / BEIS export', desc: 'DepEd School Form 7 CSV or Excel export' },
   { value: 'star-log', label: 'STAR training log', desc: 'DOST-SEI or TEI training attendance Excel' },
 ]
 
-export default function ImportPage() {
-  const [sourceType, setSourceType] = useState('sf7')
-  const [file, setFile] = useState(null)
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [logs, setLogs] = useState([])
-  const [logsLoading, setLogsLoading] = useState(true)
-  const fileRef = useRef()
+// ---------------------------------------------------------------------------
+// Main Import Component
+// ---------------------------------------------------------------------------
 
+export default function ImportPage() {
+  // State
+  const [sourceType, setSourceType] = useState('sf7')  // Selected source type
+  const [file, setFile] = useState(null)               // Selected file
+  const [result, setResult] = useState(null)           // Import result
+  const [error, setError] = useState('')               // Error message
+  const [loading, setLoading] = useState(false)        // Upload in progress
+  const [logs, setLogs] = useState([])                 // Import history
+  const [logsLoading, setLogsLoading] = useState(true)  // Loading history
+  const fileRef = useRef()                              // File input ref
+
+  /**
+   * Load import history from API.
+   */
   const loadLogs = () => {
     setLogsLoading(true)
     getImportLogs().then(setLogs).finally(() => setLogsLoading(false))
   }
 
+  // Load history on mount
   useEffect(() => { loadLogs() }, [])
 
+  /**
+   * Handle file upload.
+   */
   const handleUpload = async () => {
     if (!file) return
     setLoading(true)
@@ -33,8 +72,8 @@ export default function ImportPage() {
       const res = await uploadFile(file, sourceType)
       setResult(res)
       setFile(null)
-      if (fileRef.current) fileRef.current.value = ''
-      loadLogs()
+      if (fileRef.current) fileRef.current.value = ''  // Clear file input
+      loadLogs()  // Refresh history
     } catch (e) {
       setError(e.message)
     } finally {
@@ -50,8 +89,11 @@ export default function ImportPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upload panel */}
+        {/* ----------------------------------------------------------------------- */}
+        {/* Upload Panel                                                            */}
+        {/* ----------------------------------------------------------------------- */}
         <div className="card flex flex-col gap-5">
+          {/* Source type selector */}
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
               Source type
@@ -82,6 +124,7 @@ export default function ImportPage() {
             </div>
           </div>
 
+          {/* File selector */}
           <div>
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
               File
@@ -115,6 +158,7 @@ export default function ImportPage() {
             </div>
           </div>
 
+          {/* Upload button */}
           <button
             onClick={handleUpload}
             disabled={!file || loading}
@@ -123,12 +167,14 @@ export default function ImportPage() {
             {loading ? 'Importing...' : 'Import file'}
           </button>
 
+          {/* Error message */}
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
 
+          {/* Success result */}
           {result && (
             <div className="bg-green-50 border border-green-100 rounded-lg p-4 text-sm">
               <p className="font-medium text-green-800 mb-2">Import complete</p>
@@ -148,7 +194,9 @@ export default function ImportPage() {
           )}
         </div>
 
-        {/* Import logs */}
+        {/* ----------------------------------------------------------------------- */}
+        {/* Import History                                                          */}
+        {/* ----------------------------------------------------------------------- */}
         <div className="card">
           <p className="text-sm font-semibold text-slate-700 mb-4">Import history</p>
           {logsLoading ? <Spinner /> : logs.length === 0 ? (
@@ -176,10 +224,13 @@ export default function ImportPage() {
         </div>
       </div>
 
-      {/* Column mapping guide */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Column Mapping Guide                                                    */}
+      {/* ----------------------------------------------------------------------- */}
       <div className="card mt-6">
         <p className="text-sm font-semibold text-slate-700 mb-3">Expected column names</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+          {/* SF7 columns */}
           <div>
             <p className="font-medium text-slate-600 mb-2">SF7 / BEIS export</p>
             <table className="w-full">
@@ -207,6 +258,7 @@ export default function ImportPage() {
               </tbody>
             </table>
           </div>
+          {/* Training log columns */}
           <div>
             <p className="font-medium text-slate-600 mb-2">STAR training log</p>
             <table className="w-full">

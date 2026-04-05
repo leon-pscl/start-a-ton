@@ -1,20 +1,47 @@
+/**
+ * Regions Page Component
+ *
+ * Displays a detailed regional gap analysis with an interactive map.
+ * Features:
+ * - Full-screen interactive map with zoom/pan
+ * - Color-coded regions by gap level
+ * - Click on a region to see detailed breakdown
+ * - Sortable table of all regions
+ * - CSV export functionality
+ *
+ * The map supports three zoom levels:
+ * - Regions (zoom 5-6): Colored by gap score
+ * - Provinces (zoom 7-9): Grey boundaries
+ * - Cities (zoom 10+): Grey boundaries
+ */
+
 import { useEffect, useState } from 'react'
 import { getRegions, getRegionDetail, exportCSV } from '../lib/api'
 import { GapBadge, GapBar, Spinner, PageHeader, EmptyState } from '../components/shared'
 import PhilippinesMap from '../components/shared/PhilippinesMap'
 
-export default function RegionsPage() {
-  const [regions, setRegions]             = useState([])
-  const [selected, setSelected]           = useState(null)
-  const [detail, setDetail]               = useState(null)
-  const [loading, setLoading]             = useState(true)
-  const [loadingDetail, setLoadingDetail] = useState(false)
-  const [sortBy, setSortBy]               = useState('gap_score')
+// ---------------------------------------------------------------------------
+// Main Regions Component
+// ---------------------------------------------------------------------------
 
+export default function RegionsPage() {
+  // State for data
+  const [regions, setRegions]             = useState([])      // All regions data
+  const [selected, setSelected]           = useState(null)    // Currently selected region
+  const [detail, setDetail]               = useState(null)    // Detailed region data
+  const [loading, setLoading]             = useState(true)    // Initial loading
+  const [loadingDetail, setLoadingDetail] = useState(false)   // Loading region detail
+  const [sortBy, setSortBy]               = useState('gap_score')  // Sort column
+
+  // Fetch all regions on mount
   useEffect(() => {
     getRegions().then(setRegions).finally(() => setLoading(false))
   }, [])
 
+  /**
+   * Handle region selection from map or table.
+   * Fetches detailed analytics for the selected region.
+   */
   const selectRegion = (region) => {
     if (!region) return
     setSelected(region)
@@ -22,18 +49,21 @@ export default function RegionsPage() {
     getRegionDetail(region)
       .then(setDetail)
       .finally(() => setLoadingDetail(false))
+    // Scroll to detail panel after a short delay
     setTimeout(() => {
       document.getElementById('region-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 100)
   }
 
+  // Sort regions based on selected column
   const sorted = [...regions].sort((a, b) => {
-    if (sortBy === 'gap_score') return b.gap_score - a.gap_score
+    if (sortBy === 'gap_score') return b.gap_score - a.gap_score    // Highest first
     if (sortBy === 'total')     return b.total_teachers - a.total_teachers
     if (sortBy === 'name')      return a.region.localeCompare(b.region)
     return 0
   })
 
+  // Show loading spinner while fetching initial data
   if (loading) return <Spinner />
 
   return (
@@ -59,7 +89,9 @@ export default function RegionsPage() {
         }
       />
 
-      {/* Full-width map */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Interactive Map                                                         */}
+      {/* ----------------------------------------------------------------------- */}
       <div className="card mb-6 p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -68,6 +100,7 @@ export default function RegionsPage() {
               Scroll to zoom &middot; Drag to pan &middot; Click a region to inspect
             </p>
           </div>
+          {/* Legend */}
           <div className="flex gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm inline-block border border-slate-200"
@@ -90,11 +123,14 @@ export default function RegionsPage() {
           regions={regions}
           selected={selected}
           onSelect={selectRegion}
-          compact={false}
+          compact={false}  // Full-size map
         />
       </div>
 
-      {/* Detail panel — appears below map when region is selected */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Region Detail Panel                                                     */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Appears below map when a region is selected */}
       <div id="region-detail">
         {selected && (
           <div className="card mb-6">
@@ -102,6 +138,7 @@ export default function RegionsPage() {
               <Spinner />
             ) : detail ? (
               <div>
+                {/* Region header */}
                 <div className="flex items-start justify-between mb-5">
                   <div>
                     <h2 className="font-display font-bold text-slate-800 text-lg">{detail.region}</h2>
@@ -118,7 +155,7 @@ export default function RegionsPage() {
                   </div>
                 </div>
 
-                {/* Score components */}
+                {/* Gap score components */}
                 <div className="mb-6">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                     Gap score components
@@ -141,7 +178,9 @@ export default function RegionsPage() {
                   </div>
                 </div>
 
+                {/* Subject coverage and module uptake */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {/* Subject breakdown */}
                   {Object.keys(detail.subject_breakdown ?? {}).length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
@@ -158,6 +197,7 @@ export default function RegionsPage() {
                     </div>
                   )}
 
+                  {/* Module uptake */}
                   {Object.keys(detail.module_uptake ?? {}).length > 0 && (
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
@@ -165,7 +205,7 @@ export default function RegionsPage() {
                       </p>
                       <div className="flex flex-col gap-1">
                         {Object.entries(detail.module_uptake)
-                          .sort(([, a], [, b]) => b - a)
+                          .sort(([, a], [, b]) => b - a)  // Sort by count descending
                           .map(([mod, count]) => (
                             <div key={mod} className="flex justify-between text-xs">
                               <span className="text-slate-600 truncate pr-2">{mod}</span>
@@ -177,6 +217,7 @@ export default function RegionsPage() {
                   )}
                 </div>
 
+                {/* Export button */}
                 <button
                   onClick={() => exportCSV(detail.region)}
                   className="btn-secondary text-xs mt-5"
@@ -189,7 +230,9 @@ export default function RegionsPage() {
         )}
       </div>
 
-      {/* Region table */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Regions Table                                                           */}
+      {/* ----------------------------------------------------------------------- */}
       <div className="card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
