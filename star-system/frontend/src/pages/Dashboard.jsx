@@ -1,29 +1,54 @@
+/**
+ * Dashboard Page Component
+ *
+ * The main landing page showing system-wide statistics and overview.
+ * Displays:
+ * - Summary cards (total teachers, coverage, high-gap regions, training records)
+ * - Interactive map of the Philippines (compact view)
+ * - Bar chart of gap scores by region
+ * - Priority regions list (high-gap areas)
+ * - STAR modules list
+ *
+ * Data is fetched from the analytics API on mount.
+ */
+
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getSummary, getRegions, exportCSV } from '../lib/api'
 import { GAP_COLORS, pct } from '../lib/constants'
 import { StatCard, GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
+import PhilippinesMap from '../components/shared/PhilippinesMap'
+
+// ---------------------------------------------------------------------------
+// Main Dashboard Component
+// ---------------------------------------------------------------------------
 
 export default function Dashboard() {
-  const [summary, setSummary] = useState(null)
-  const [regions, setRegions] = useState([])
-  const [loading, setLoading] = useState(true)
+  // State for API data
+  const [summary, setSummary] = useState(null)    // Summary statistics
+  const [regions, setRegions] = useState([])       // Regional gap analysis
+  const [loading, setLoading] = useState(true)     // Loading state
+  const navigate = useNavigate()
 
+  // Fetch data on mount
   useEffect(() => {
     Promise.all([getSummary(), getRegions()])
       .then(([s, r]) => { setSummary(s); setRegions(r) })
       .finally(() => setLoading(false))
   }, [])
 
+  // Show loading spinner while fetching
   if (loading) return <Spinner />
 
-  const topGap = regions.filter(r => r.gap_level === 'high').slice(0, 5)
+  // Prepare data for display
+  const topGap = regions.filter(r => r.gap_level === 'high').slice(0, 5)  // Top 5 high-gap regions
   const chartData = regions
-    .sort((a, b) => b.gap_score - a.gap_score)
-    .slice(0, 12)
+    .sort((a, b) => b.gap_score - a.gap_score)  // Sort by gap score (highest first)
+    .slice(0, 12)                                // Show top 12
     .map(r => ({
-      name: r.region.replace('Region ', 'R').replace('Region ', 'R'),
-      score: Math.round(r.gap_score * 100),
+      name: r.region.replace('Region ', 'R'),   // Abbreviate for chart
+      score: Math.round(r.gap_score * 100),      // Convert to percentage
       level: r.gap_level,
     }))
 
@@ -39,7 +64,9 @@ export default function Dashboard() {
         }
       />
 
-      {/* Summary stats */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Summary Statistics Cards                                                */}
+      {/* ----------------------------------------------------------------------- */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Total teachers"
@@ -65,11 +92,33 @@ export default function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Gap score chart */}
-        <div className="card">
+      {/* ----------------------------------------------------------------------- */}
+      {/* Map and Chart Row                                                       */}
+      {/* ----------------------------------------------------------------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+        {/* Compact map - navigates to Regions page on click */}
+        <div className="card flex flex-col items-center">
+          <div className="flex items-center justify-between w-full mb-3">
+            <h2 className="text-sm font-semibold text-slate-700">Regional overview</h2>
+            <button
+              onClick={() => navigate('/regions')}
+              className="text-xs text-star-600 hover:underline"
+            >
+              View full map →
+            </button>
+          </div>
+          <PhilippinesMap
+            regions={regions}
+            compact={true}
+            onSelect={(region) => navigate(`/regions?selected=${encodeURIComponent(region)}`)}
+          />
+        </div>
+
+        {/* Gap score bar chart */}
+        <div className="card lg:col-span-2">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">
-            Regional gap scores
+            Gap scores by region
           </h2>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
@@ -79,6 +128,7 @@ export default function Dashboard() {
                 tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip formatter={v => [`${v}%`, 'Gap score']} />
               <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={14}>
+                {/* Color bars by gap level */}
                 {chartData.map((entry, i) => (
                   <Cell key={i} fill={GAP_COLORS[entry.level]?.hex ?? '#94a3b8'} />
                 ))}
@@ -86,8 +136,13 @@ export default function Dashboard() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
-        {/* Priority regions */}
+      {/* ----------------------------------------------------------------------- */}
+      {/* Priority Regions and STAR Modules                                      */}
+      {/* ----------------------------------------------------------------------- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Priority regions - those with high gap scores */}
         <div className="card">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">
             Priority regions
@@ -112,18 +167,18 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* STAR modules coverage */}
-      <div className="card">
-        <h2 className="text-sm font-semibold text-slate-700 mb-1">STAR modules</h2>
-        <p className="text-xs text-slate-400 mb-4">7 capacity-building modules</p>
-        <div className="flex flex-wrap gap-2">
-          {(summary.star_modules ?? []).map(m => (
-            <span key={m} className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg">
-              {m}
-            </span>
-          ))}
+        {/* STAR modules list */}
+        <div className="card">
+          <h2 className="text-sm font-semibold text-slate-700 mb-1">STAR modules</h2>
+          <p className="text-xs text-slate-400 mb-4">7 capacity-building modules</p>
+          <div className="flex flex-wrap gap-2">
+            {(summary.star_modules ?? []).map(m => (
+              <span key={m} className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg">
+                {m}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
