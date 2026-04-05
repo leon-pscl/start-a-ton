@@ -4,7 +4,7 @@ So far, this is built to be run locally.
 
 ## Backend
 
-Open a terminal and run the following:
+Open a terminal and run the following line by line:
 ```bash
 cd star-system/backend
 python -m venv start-a-ton
