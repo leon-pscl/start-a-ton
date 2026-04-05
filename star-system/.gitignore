@@ -38,4 +38,4 @@ htmlcov/
 *.sqlite3
 
 # --- Docker ---
-.dockerigno
+.dockerignore
