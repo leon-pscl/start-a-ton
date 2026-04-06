@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getRegions, getRegionDetail, getProvinces, getCities, exportCSV } from '../lib/api'
-import { GapBadge, GapBar, Spinner, PageHeader, EmptyState } from '../components/shared'
+import { GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
 import PhilippinesMap from '../components/shared/PhilippinesMap'
 
 const STAR_MODULES = [
@@ -128,6 +128,108 @@ function ModuleHeatmap({ moduleUptake, total }) {
   )
 }
 
+function CrossRegionalHeatmap({ regions }) {
+  const [matrix, setMatrix]   = useState(null)   // { [module]: { [region]: count } }
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!regions.length) return
+    // Fetch all region details in parallel, then extract module_uptake
+    Promise.all(regions.map(r => getRegionDetail(r.region)))
+      .then(details => {
+        const m = {}
+        STAR_MODULES.forEach(mod => { m[mod] = {} })
+        details.forEach(d => {
+          if (!d.module_uptake) return
+          Object.entries(d.module_uptake).forEach(([mod, count]) => {
+            if (m[mod]) m[mod][d.region] = count
+          })
+        })
+        setMatrix(m)
+      })
+      .finally(() => setLoading(false))
+  }, [regions])
+
+  if (loading) return <div className="flex justify-center py-6"><Spinner /></div>
+  if (!matrix) return null
+
+  // Regions as columns, sorted by gap_score descending
+  const sorted = [...regions].sort((a, b) => b.gap_score - a.gap_score)
+
+  const cellColor = (count, total) => {
+    if (!total || count === 0) return 'bg-slate-50'
+    const pct = (count / total) * 100
+    if (pct >= 60) return 'bg-green-100 text-green-800'
+    if (pct >= 30) return 'bg-amber-100 text-amber-800'
+    return 'bg-red-100 text-red-700'
+  }
+
+  return (
+    <div className="card mb-6 overflow-x-auto">
+      <div className="mb-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+          Cross-regional module uptake
+        </p>
+        <div className="flex gap-4 text-xs text-slate-400">
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm inline-block bg-green-100 border border-green-200" />
+            Strong ≥60%
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm inline-block bg-amber-100 border border-amber-200" />
+            Moderate 30–59%
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm inline-block bg-red-100 border border-red-200" />
+            Low &lt;30%
+          </span>
+        </div>
+      </div>
+
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr>
+            <th className="text-left text-slate-500 font-semibold px-2 py-2 sticky left-0 bg-white z-10 min-w-44">
+              Module
+            </th>
+            {sorted.map(r => (
+              <th key={r.region} className="text-center px-1 py-2 font-semibold text-slate-500 min-w-16"
+                title={`${r.total_teachers} teachers`}>
+                <div className="text-xs">{r.region}</div>
+                <div className="text-slate-400 font-normal">{r.total_teachers}</div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {STAR_MODULES.map(mod => (
+            <tr key={mod} className="border-t border-slate-100">
+              <td className="px-2 py-1.5 text-slate-600 sticky left-0 bg-white z-10">
+                <span title={mod}>{SHORT_NAMES[mod] ?? mod}</span>
+              </td>
+              {sorted.map(r => {
+                const count = matrix[mod]?.[r.region] ?? 0
+                const pct   = r.total_teachers > 0
+                  ? Math.round((count / r.total_teachers) * 100) : 0
+                return (
+                  <td
+                    key={r.region}
+                    className={`text-center px-1 py-1.5 font-medium ${cellColor(count, r.total_teachers)}`}
+                    title={`${mod} · ${r.region}: ${count} teacher${count !== 1 ? 's' : ''} (${pct}%)`}
+                  >
+                    <div>{count}</div>
+                    <div className="text-slate-500 font-normal">{pct}%</div>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export default function RegionsPage() {
   const [regions, setRegions]             = useState([])
   const [provinces, setProvinces]         = useState([])
@@ -228,6 +330,9 @@ export default function RegionsPage() {
           compact={false}
         />
       </div>
+
+      {/* Cross-regional module uptake heatmap */}
+      <CrossRegionalHeatmap regions={regions} />
 
       {/* Detail panel */}
       <div id="region-detail">
