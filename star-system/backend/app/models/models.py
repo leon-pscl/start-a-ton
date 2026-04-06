@@ -233,8 +233,17 @@ def normalize_city(raw: str) -> str:
         "ANTIPOLO CITY": "Antipolo City",
         "GENERAL SANTOS": "General Santos City",
         "GENERAL SANTOS CITY": "General Santos City",
+        "GENSAN": "General Santos City",
         "PUERTO PRINCESA": "Puerto Princesa City",
         "PUERTO PRINCESA CITY": "Puerto Princesa City",
+        # Common typos
+        "DASMA": "Dasmariñas City",
+        "DASMARINAS": "Dasmariñas City",
+        "DASMARINAS CITY": "Dasmariñas City",
+        "BINAN": "Biñan City",
+        "BINAN CITY": "Biñan City",
+        "LOS BANOS": "Los Baños",
+        "CALOOCAN": "Caloocan City",
     }
 
     # Check aliases first
