@@ -199,3 +199,4 @@ export const exportCSV = (region = '') => {
 
 export const getProvinces = () => request('/analytics/provinces')
 export const getCities    = () => request('/analytics/cities')
+export const getSubjectShortage = () => request('/analytics/subject-shortage')

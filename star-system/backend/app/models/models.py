@@ -288,6 +288,7 @@ class TeacherBase(SQLModel):
     years_experience: Optional[int] = None
     highest_qualification: Optional[str] = None
     subject_specializations: Optional[str] = None
+    subjects_currently_teaching: Optional[str] = None
     grade_levels_taught: Optional[str] = None
     low_confidence_subjects: Optional[str] = None
     unapplied_modules: Optional[str] = None
@@ -323,6 +324,7 @@ class TeacherCreate(TeacherBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     subject_specializations: Optional[List[str]] = []
+    subjects_currently_teaching: Optional[List[str]] = []
     grade_levels_taught: Optional[List[str]] = []
     low_confidence_subjects: Optional[List[str]] = []
     unapplied_modules: Optional[List[str]] = []

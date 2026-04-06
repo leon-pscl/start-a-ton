@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getRegions, getRegionDetail, getProvinces, getCities, exportCSV } from '../lib/api'
+import { getRegions, getRegionDetail, getProvinces, getCities, getSubjectShortage, exportCSV } from '../lib/api'
 import { GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
 import PhilippinesMap from '../components/shared/PhilippinesMap'
 
@@ -128,104 +128,122 @@ function ModuleHeatmap({ moduleUptake, total }) {
   )
 }
 
-function CrossRegionalHeatmap({ regions }) {
-  const [matrix, setMatrix]   = useState(null)   // { [module]: { [region]: count } }
+function SubjectShortageHeatmap({ regions }) {
+  const [data, setData]   = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!regions.length) return
-    // Fetch all region details in parallel, then extract module_uptake
-    Promise.all(regions.map(r => getRegionDetail(r.region)))
-      .then(details => {
-        const m = {}
-        STAR_MODULES.forEach(mod => { m[mod] = {} })
-        details.forEach(d => {
-          if (!d.module_uptake) return
-          Object.entries(d.module_uptake).forEach(([mod, count]) => {
-            if (m[mod]) m[mod][d.region] = count
-          })
-        })
-        setMatrix(m)
-      })
+    getSubjectShortage()
+      .then(setData)
       .finally(() => setLoading(false))
-  }, [regions])
+  }, [])
 
   if (loading) return <div className="flex justify-center py-6"><Spinner /></div>
-  if (!matrix) return null
+  if (!data || !data.matrix) return null
 
-  // Regions as columns, sorted by gap_score descending
+  const { matrix, subjects, region_totals } = data
+  // Regions as columns, sorted by gap_score descending (use regions from props, same order as table)
   const sorted = [...regions].sort((a, b) => b.gap_score - a.gap_score)
 
   const cellColor = (count, total) => {
-    if (!total || count === 0) return 'bg-slate-50'
+    if (!total || count === 0) return 'bg-slate-50 text-slate-300'
     const pct = (count / total) * 100
-    if (pct >= 60) return 'bg-green-100 text-green-800'
-    if (pct >= 30) return 'bg-amber-100 text-amber-800'
-    return 'bg-red-100 text-red-700'
+    if (pct >= 30) return 'bg-red-100 text-red-700'
+    if (pct >= 10) return 'bg-amber-100 text-amber-700'
+    return 'bg-green-100 text-green-700'
   }
+
+  // subjects with at least one mismatch across all regions
+  const activeSubjects = subjects.filter(s =>
+    Object.values(matrix[s] ?? {}).some(v => v > 0)
+  )
 
   return (
     <div className="card mb-6 overflow-x-auto">
       <div className="mb-3">
         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
-          Cross-regional module uptake
+          Subject shortage — out-of-specialization teachers per region
+        </p>
+        <p className="text-xs text-slate-400 mb-2">
+          Shows subjects being taught by non-specialists. High counts = acute shortage.
         </p>
         <div className="flex gap-4 text-xs text-slate-400">
           <span className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-sm inline-block bg-green-100 border border-green-200" />
-            Strong ≥60%
+            Low (&lt;10%)
           </span>
           <span className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-sm inline-block bg-amber-100 border border-amber-200" />
-            Moderate 30–59%
+            Moderate (10–29%)
           </span>
           <span className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-sm inline-block bg-red-100 border border-red-200" />
-            Low &lt;30%
+            High (≥30%)
           </span>
         </div>
       </div>
 
-      <table className="w-full text-xs border-collapse">
-        <thead>
-          <tr>
-            <th className="text-left text-slate-500 font-semibold px-2 py-2 sticky left-0 bg-white z-10 min-w-44">
-              Module
-            </th>
-            {sorted.map(r => (
-              <th key={r.region} className="text-center px-1 py-2 font-semibold text-slate-500 min-w-16"
-                title={`${r.total_teachers} teachers`}>
-                <div className="text-xs">{r.region}</div>
-                <div className="text-slate-400 font-normal">{r.total_teachers}</div>
+      {activeSubjects.length === 0 ? (
+        <p className="text-xs text-slate-400 py-4 text-center">
+          No out-of-specialization teaching detected.
+        </p>
+      ) : (
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr>
+              <th className="text-left text-slate-500 font-semibold px-2 py-2 sticky left-0 bg-white z-10 min-w-40">
+                Subject
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {STAR_MODULES.map(mod => (
-            <tr key={mod} className="border-t border-slate-100">
-              <td className="px-2 py-1.5 text-slate-600 sticky left-0 bg-white z-10">
-                <span title={mod}>{SHORT_NAMES[mod] ?? mod}</span>
-              </td>
-              {sorted.map(r => {
-                const count = matrix[mod]?.[r.region] ?? 0
-                const pct   = r.total_teachers > 0
-                  ? Math.round((count / r.total_teachers) * 100) : 0
-                return (
-                  <td
-                    key={r.region}
-                    className={`text-center px-1 py-1.5 font-medium ${cellColor(count, r.total_teachers)}`}
-                    title={`${mod} · ${r.region}: ${count} teacher${count !== 1 ? 's' : ''} (${pct}%)`}
-                  >
-                    <div>{count}</div>
-                    <div className="text-slate-500 font-normal">{pct}%</div>
-                  </td>
-                )
-              })}
+              {sorted.map(r => (
+                <th key={r.region} className="text-center px-1 py-2 font-semibold text-slate-500 min-w-16"
+                  title={`${region_totals[r.region] ?? r.total_teachers} teachers`}>
+                  <div className="text-xs">{r.region}</div>
+                  <div className="text-slate-400 font-normal">{r.total_teachers}</div>
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {activeSubjects.map(subj => (
+              <tr key={subj} className="border-t border-slate-100">
+                <td className="px-2 py-1.5 text-slate-600 sticky left-0 bg-white z-10 font-medium">
+                  {subj}
+                </td>
+                {sorted.map(r => {
+                  const count = matrix[subj]?.[r.region] ?? 0
+                  const total = region_totals[r.region] ?? r.total_teachers ?? 0
+                  return (
+                    <td
+                      key={r.region}
+                      className={`text-center px-1 py-1.5 font-medium ${cellColor(count, total)}`}
+                      title={`${subj} · ${r.region}: ${count} out-of-specialist`}
+                    >
+                      {count > 0 ? count : '—'}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Summary row */}
+      {activeSubjects.length > 0 && (
+        <div className="mt-3 p-3 bg-slate-50 rounded-lg">
+          <p className="text-xs text-slate-500">
+            <span className="font-medium text-slate-700">Most shortage by subject: </span>
+            {[...activeSubjects]
+              .sort((a, b) => {
+                const sumA = Object.values(matrix[a] ?? {}).reduce((s, v) => s + v, 0)
+                const sumB = Object.values(matrix[b] ?? {}).reduce((s, v) => s + v, 0)
+                return sumB - sumA
+              })
+              .slice(0, 5)
+              .join(', ')}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -331,8 +349,8 @@ export default function RegionsPage() {
         />
       </div>
 
-      {/* Cross-regional module uptake heatmap */}
-      <CrossRegionalHeatmap regions={regions} />
+      {/* Subject shortage heatmap */}
+      <SubjectShortageHeatmap regions={regions} />
 
       {/* Detail panel */}
       <div id="region-detail">

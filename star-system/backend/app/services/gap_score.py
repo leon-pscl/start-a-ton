@@ -125,17 +125,16 @@ def compute_region_gap(region: str, session: Session) -> dict:
     coverage_score = untrained / total
 
     # ---------------------------------------------------------------
-    # Mismatch Score: Teachers outside their specialization
+    # Mismatch Score: Teachers teaching outside their specialization
     # ---------------------------------------------------------------
-    # Count teachers teaching subjects they lack confidence in
-    # (subjects in low_confidence_subjects but not in specializations)
+    # Count teachers who are assigned to teach at least one subject
+    # they are NOT specialized in (subjects_currently_teaching ∩ ¬specializations)
     mismatch_count = 0
     for t in teachers:
         specs    = _parse_json_field(t.subject_specializations)
-        low_conf = _parse_json_field(t.low_confidence_subjects)
-        if low_conf and specs:
-            # Find subjects teacher lacks confidence in but is teaching
-            outside = [s for s in low_conf if s not in specs]
+        teaching = _parse_json_field(t.subjects_currently_teaching)
+        if teaching and specs:
+            outside = [s for s in teaching if s not in specs]
             if outside:
                 mismatch_count += 1
     mismatch_score = mismatch_count / total
@@ -289,6 +288,45 @@ def compute_province_gaps(session: Session) -> list[dict]:
     return sorted(results, key=lambda x: -x['gap_score'])
 
 
+def compute_subject_shortage(session: Session) -> dict:
+    """
+    Compute subject shortage (mismatch) across all regions.
+
+    For each region, counts how many teachers are teaching each subject
+    OUTSIDE their specialization — i.e., the subjects with the most
+    out-of-specialization teachers indicate the greatest shortages.
+
+    Returns:
+        matrix: { subject -> { region -> mismatch_count } }
+        subjects: sorted list of subjects with at least one mismatch
+    """
+    teachers = session.exec(select(Teacher)).all()
+
+    # { subject -> { region -> count } }
+    matrix: dict[str, dict[str, int]] = {}
+    # { region -> total_teachers }
+    region_totals: dict[str, int] = {}
+
+    for t in teachers:
+        region = t.region
+        region_totals[region] = region_totals.get(region, 0) + 1
+
+        specs     = _parse_json_field(t.subject_specializations)
+        teaching  = _parse_json_field(t.subjects_currently_teaching)
+
+        if not teaching or not specs:
+            continue
+
+        # Subjects this teacher is currently teaching outside their specialization
+        out_of_specialization = [s for s in teaching if s not in specs]
+        for subj in out_of_specialization:
+            matrix.setdefault(subj, {}).setdefault(region, 0)
+            matrix[subj][region] += 1
+
+    subjects = sorted(matrix.keys())
+    return {"matrix": matrix, "subjects": subjects, "region_totals": region_totals}
+
+
 def compute_city_gaps(session: Session) -> list[dict]:
     """Compute gap scores grouped by city/municipality."""
     teachers = session.exec(select(Teacher)).all()
@@ -317,10 +355,10 @@ def compute_city_gaps(session: Session) -> list[dict]:
 
         mismatch = 0
         for t in group:
-            specs    = _parse_json_field(t.subject_specializations)
-            low_conf = _parse_json_field(t.low_confidence_subjects)
-            if low_conf and specs:
-                if any(s not in specs for s in low_conf):
+            specs     = _parse_json_field(t.subject_specializations)
+            teaching  = _parse_json_field(t.subjects_currently_teaching)
+            if teaching and specs:
+                if any(s not in specs for s in teaching):
                     mismatch += 1
 
         gap = (

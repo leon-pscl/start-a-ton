@@ -21,7 +21,7 @@ import csv, io, json
 from datetime import datetime
 from app.core.database import get_session
 from app.models.models import Teacher, TrainingRecord, STAR_MODULES
-from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps
+from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps, compute_subject_shortage
 
 # Create router with /analytics prefix
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -189,6 +189,20 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
     
+@router.get("/subject-shortage")
+def get_subject_shortage(session: Session = Depends(get_session)):
+    """
+    Get subject shortage (mismatch) matrix across all regions.
+
+    Returns which subjects are most commonly being taught outside
+    teacher specialization, per region. Cells show the count of
+    out-of-specialization teachers per subject per region.
+
+    Used to render the cross-regional subject shortage heatmap.
+    """
+    return compute_subject_shortage(session)
+
+
 @router.get("/provinces")
 def get_provinces(session: Session = Depends(get_session)):
     return compute_province_gaps(session)

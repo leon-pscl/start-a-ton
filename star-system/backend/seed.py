@@ -251,8 +251,16 @@ def _make_teacher(session, region, province, city, profile):
     """Create a single teacher record with randomized attributes."""
     specs   = random.sample(SUBJECTS, k=random.randint(1, 3))
     low_conf = random.sample(SUBJECTS, k=random.randint(0, 2))
-    is_far     = random.random() < profile["far_pct"]
+    is_far      = random.random() < profile["far_pct"]
     is_mismatch = random.random() < profile["mismatch_pct"]
+
+    # subjects_currently_teaching: if mismatched, teacher teaches at least one
+    # subject OUTSIDE their specialization; otherwise they teach only within spec
+    if is_mismatch:
+        outside = random.sample([s for s in SUBJECTS if s not in specs], k=1)
+        currently_teaching = random.sample(specs, k=random.randint(1, len(specs))) + outside
+    else:
+        currently_teaching = random.sample(specs, k=random.randint(1, len(specs)))
 
     teacher = Teacher(
         full_name=make_name(),
@@ -266,11 +274,12 @@ def _make_teacher(session, region, province, city, profile):
         years_experience=random.randint(1, 30),
         highest_qualification=random.choice(QUALIFICATIONS),
         subject_specializations=json.dumps(specs),
+        subjects_currently_teaching=json.dumps(currently_teaching),
         grade_levels_taught=json.dumps(random.sample(
             ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"],
             k=random.randint(1, 4)
         )),
-        low_confidence_subjects=json.dumps(low_conf if is_mismatch else []),
+        low_confidence_subjects=json.dumps(low_conf),
         unapplied_modules=json.dumps(random.sample(STAR_MODULES, k=random.randint(0, 3))),
         distance_to_training=("3hrs+" if is_far else random.choice(["<1hr", "1-3hrs"])),
         preferred_format=random.choice(FORMATS),
