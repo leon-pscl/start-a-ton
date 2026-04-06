@@ -131,6 +131,50 @@ export const uploadFile = (file, sourceType) => {
 }
 
 /**
+ * Preview a file without importing (parses and returns extracted records).
+ *
+ * Uses FormData for multipart file upload.
+ *
+ * @param {File} file - The file to preview
+ * @param {string} sourceType - Either "sf7" or "star-log"
+ * @returns {Promise<{source_type: string, filename: string, total_records: number, columns_found: object, records: Array}>}
+ */
+export const previewFile = (file, sourceType) => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('source_type', sourceType)
+  return fetch(`${BASE}/import/preview`, { method: 'POST', body: form })
+    .then(async res => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.detail ?? `Preview failed: ${res.status}`)
+      }
+      return res.json()
+    })
+}
+
+/**
+ * Confirm import after user reviews/edits records.
+ *
+ * @param {string} sourceType - Either "sf7" or "star-log"
+ * @param {Array} records - Array of teacher/training records (potentially modified)
+ * @returns {Promise<{source_type: string, rows_imported: number, rows_flagged: number}>}
+ */
+export const confirmImport = (sourceType, records) => {
+  const form = new FormData()
+  form.append('source_type', sourceType)
+  form.append('records', JSON.stringify(records))
+  return fetch(`${BASE}/import/confirm`, { method: 'POST', body: form })
+    .then(async res => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.detail ?? `Confirm failed: ${res.status}`)
+      }
+      return res.json()
+    })
+}
+
+/**
  * Get import history for audit trail.
  *
  * @returns {Promise<Array>} - List of ImportLog records
@@ -155,3 +199,4 @@ export const exportCSV = (region = '') => {
 
 export const getProvinces = () => request('/analytics/provinces')
 export const getCities    = () => request('/analytics/cities')
+export const getSubjectShortage = () => request('/analytics/subject-shortage')

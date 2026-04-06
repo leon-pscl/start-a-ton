@@ -21,7 +21,7 @@ import csv, io, json
 from datetime import datetime
 from app.core.database import get_session
 from app.models.models import Teacher, TrainingRecord, STAR_MODULES
-from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps
+from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps, compute_subject_shortage
 
 # Create router with /analytics prefix
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -162,18 +162,19 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
 
     # Write header row
     writer.writerow([
-        "ID", "Full Name", "Region", "Division", "School",
+        "ID", "Full Name", "Region", "Province", "City", "Division", "School",
         "Position", "Years Experience", "Highest Qualification",
-        "Subject Specializations", "Is Trained", "Source", "Data Confidence",
+        "Subject Specializations", "Grade Levels Taught", "Is Trained", "Source", "Data Confidence",
     ])
 
     # Write data rows
     for t in teachers:
         specs = ", ".join(json.loads(t.subject_specializations or "[]"))
+        grades = ", ".join(json.loads(t.grade_levels_taught or "[]"))
         writer.writerow([
-            t.id, t.full_name, t.region, t.division or "", t.school_name or "",
+            t.id, t.full_name, t.region, t.province or "", t.city or "", t.division or "", t.school_name or "",
             t.position or "", t.years_experience or "", t.highest_qualification or "",
-            specs, t.id in trained_ids, t.source, t.data_confidence,
+            specs, grades, t.id in trained_ids, t.source, t.data_confidence,
         ])
 
     output.seek(0)
@@ -188,6 +189,20 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
     
+@router.get("/subject-shortage")
+def get_subject_shortage(session: Session = Depends(get_session)):
+    """
+    Get subject shortage (mismatch) matrix across all regions.
+
+    Returns which subjects are most commonly being taught outside
+    teacher specialization, per region. Cells show the count of
+    out-of-specialization teachers per subject per region.
+
+    Used to render the cross-regional subject shortage heatmap.
+    """
+    return compute_subject_shortage(session)
+
+
 @router.get("/provinces")
 def get_provinces(session: Session = Depends(get_session)):
     return compute_province_gaps(session)

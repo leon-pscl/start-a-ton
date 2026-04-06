@@ -44,7 +44,7 @@ const INITIAL = {
   full_name: '', region: '', province: '', city: '',
   division: '', school_name: '', school_type: 'public',
   position: '', years_experience: '', highest_qualification: '',
-  subject_specializations: [], grade_levels_taught: [],
+  subject_specializations: [], subjects_currently_teaching: [], grade_levels_taught: [],
   trainings_attended: [],
   low_confidence_subjects: [], unapplied_modules: [],
   distance_to_training: '', preferred_format: '',
@@ -348,6 +348,12 @@ function Step2({ form, set }) {
         options={SUBJECTS}
         selected={form.subject_specializations}
         onChange={v => set('subject_specializations', v)}
+      />
+      <CheckboxGroup
+        label="Subjects currently teaching"
+        options={SUBJECTS}
+        selected={form.subjects_currently_teaching}
+        onChange={v => set('subjects_currently_teaching', v)}
       />
       <CheckboxGroup
         label="Grade levels currently teaching"
