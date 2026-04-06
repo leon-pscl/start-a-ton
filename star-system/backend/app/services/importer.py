@@ -44,7 +44,8 @@ SF7_COLUMN_MAP = {
     "division":                ["division", "division name", "sdo"],
     "school_name":             ["school", "school name", "school/center"],
     "position":                ["position", "designation", "item"],
-    "subject_specializations": ["subject", "subject area", "specialization", "subjects taught"],
+    "subject_specializations":     ["subject", "subject area", "specialization", "subjects taught"],
+    "subjects_currently_teaching": ["subjects teaching", "currently teaching", "subjects currently taught"],
     "grade_levels_taught":     ["grade level", "grade", "year level"],
     "school_type":             ["type", "school type", "classification"],
     "training_attended":       ["inset", "tpd", "training", "star training"],
@@ -332,21 +333,18 @@ def preview_sf7(file_bytes: bytes, filename: str) -> dict:
                 "position": teacher.get("position"),
                 "highest_qualification": qual,
                 "subject_specializations": subjects,
-                "sex": teacher.get("sex"),
-                "degree_raw": teacher.get("degree"),
-                "major": teacher.get("major"),
-                # Fields not in SF7 - empty for user to fill
-                "province": None,
-                "city": None,
-                "division": None,
-                "school_type": "public",
-                "years_experience": None,
+                "subjects_currently_teaching": [],
                 "grade_levels_taught": [],
                 "trainings_attended": [],
                 "low_confidence_subjects": [],
                 "unapplied_modules": [],
                 "distance_to_training": None,
                 "preferred_format": None,
+                "province": None,
+                "city": None,
+                "division": None,
+                "school_type": "public",
+                "years_experience": None,
             }
             records.append(record)
     else:
@@ -375,6 +373,7 @@ def preview_sf7(file_bytes: bytes, filename: str) -> dict:
                 "school_name": _safe(row.get(_find_column(df, SF7_COLUMN_MAP["school_name"]) or "")),
                 "position": _safe(row.get(_find_column(df, SF7_COLUMN_MAP["position"]) or "")),
                 "subject_specializations": subjects,
+                "subjects_currently_teaching": [],
                 "grade_levels_taught": [],
                 "school_type": _safe(row.get(_find_column(df, SF7_COLUMN_MAP["school_type"]) or "")) or "public",
                 "province": None,
@@ -455,6 +454,7 @@ def preview_star_log(file_bytes: bytes, filename: str) -> dict:
             "years_experience": None,
             "highest_qualification": None,
             "subject_specializations": [],
+            "subjects_currently_teaching": [],
             "grade_levels_taught": [],
             "trainings_attended": [_match_module(module_raw)] if _match_module(module_raw) else [],
             "low_confidence_subjects": [],
@@ -525,6 +525,9 @@ def confirm_import(records: list[dict], source_type: str, session: Session) -> I
         # Handle JSON array fields
         subjects = record.get("subject_specializations")
         teacher.subject_specializations = json.dumps(subjects) if subjects else None
+
+        currently = record.get("subjects_currently_teaching")
+        teacher.subjects_currently_teaching = json.dumps(currently) if currently else None
 
         grades = record.get("grade_levels_taught")
         teacher.grade_levels_taught = json.dumps(grades) if grades else None

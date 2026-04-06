@@ -14,7 +14,7 @@
 import { useEffect, useState } from 'react'
 import { getTeachers } from '../lib/api'
 import { REGIONS, SUBJECTS } from '../lib/constants'
-import { Spinner, EmptyState, PageHeader, Select } from '../components/shared'
+import { Spinner, EmptyState, PageHeader, Select, HoverTags } from '../components/shared'
 
 // Number of records per page
 const PAGE_SIZE = 50
@@ -121,7 +121,7 @@ export default function TeachersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50">
-                {['Name', 'Region', 'Province', 'City', 'School', 'Specialization', 'Position', 'Training', 'Source'].map(h => (
+                {['Name', 'Region', 'Province', 'City', 'School', 'Specialization', 'Currently Teaching', 'Position', 'Training', 'Source'].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500">{h}</th>
                 ))}
               </tr>
@@ -139,19 +139,13 @@ export default function TeachersPage() {
                   <td className="px-4 py-3 text-slate-500 text-xs">{t.city ?? '—'}</td>
                   {/* School (truncated) */}
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-36 truncate">{t.school_name ?? '—'}</td>
-                  {/* Subject specializations (as tags) */}
+                  {/* Subject specializations (as tags, hoverable) */}
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(t.subject_specializations ?? []).slice(0, 2).map(s => (
-                        <span key={s} className="text-xs bg-star-50 text-star-700 px-2 py-0.5 rounded">{s}</span>
-                      ))}
-                      {/* Show count if more than 2 subjects */}
-                      {(t.subject_specializations ?? []).length > 2 && (
-                        <span className="text-xs text-slate-400">
-                          +{t.subject_specializations.length - 2}
-                        </span>
-                      )}
-                    </div>
+                    <HoverTags items={t.subject_specializations ?? []} color="star" max={2} label="Specializations" />
+                  </td>
+                  {/* Subjects currently teaching (hoverable) */}
+                  <td className="px-4 py-3">
+                    <HoverTags items={t.subjects_currently_teaching ?? []} color="amber" max={2} label="Currently Teaching" />
                   </td>
                   {/* Position */}
                   <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{t.position ?? '—'}</td>

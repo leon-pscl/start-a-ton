@@ -184,6 +184,68 @@ export function Select({ value, onChange, options, placeholder, className = '', 
 }
 
 // ---------------------------------------------------------------------------
+// HoverTags - Tag list with hover tooltip for overflow
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders a list of tags, showing only the first `max` items inline.
+ * On hover, displays a tooltip with the full list.
+ *
+ * @param {object} props
+ * @param {Array<string>} props.items - Full list of items to display
+ * @param {string} [props.color] - Tag color variant: 'star' (default), 'slate', 'amber'
+ * @param {number} [props.max] - Max items to show inline (default 2)
+ * @param {string} [props.label] - Tooltip header label (default 'Full list')
+ */
+export function HoverTags({ items = [], color = 'star', max = 2, label = 'Full list' }) {
+  if (items.length === 0) return <span className="text-slate-300">—</span>
+
+  const visible = items.slice(0, max)
+  const extra = items.length - max
+
+  const colorClasses = {
+    star: 'bg-star-50 text-star-700',
+    slate: 'bg-slate-100 text-slate-600',
+    amber: 'bg-amber-50 text-amber-700',
+    red: 'bg-red-50 text-red-600',
+  }[color]
+
+  if (extra <= 0) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visible.map(s => (
+          <span key={s} className={`text-xs px-2 py-0.5 rounded ${colorClasses}`}>{s}</span>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative group inline-block">
+      <div className="flex flex-wrap gap-1">
+        {visible.map(s => (
+          <span key={s} className={`text-xs px-2 py-0.5 rounded ${colorClasses}`}>{s}</span>
+        ))}
+        <span className="text-xs text-slate-400">+{extra}</span>
+      </div>
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
+        <div className="bg-slate-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap max-w-xs break-words">
+          <p className="font-medium mb-1.5 text-slate-300 text-xs uppercase tracking-wide">{label}</p>
+          {items.map(s => (
+            <p key={s} className="whitespace-nowrap">{s}</p>
+          ))}
+          {/* Arrow */}
+          <div className="absolute top-full left-4 -mt-px">
+            <div className="border-4 border-transparent border-t-slate-800" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // CheckboxGroup - Multi-Select Button Group
 // ---------------------------------------------------------------------------
 

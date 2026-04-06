@@ -119,12 +119,13 @@ def list_teachers(
         # Build response object with parsed JSON fields
         filtered.append({
             **t.dict(),
-            "subject_specializations": specs,
-            "grade_levels_taught":     _parse_list(t.grade_levels_taught),
-            "low_confidence_subjects": _parse_list(t.low_confidence_subjects),
-            "unapplied_modules":       _parse_list(t.unapplied_modules),
-            "is_trained":              is_trained,
-            "training_count":          training_count,
+            "subject_specializations":    specs,
+            "subjects_currently_teaching": _parse_list(t.subjects_currently_teaching),
+            "grade_levels_taught":        _parse_list(t.grade_levels_taught),
+            "low_confidence_subjects":    _parse_list(t.low_confidence_subjects),
+            "unapplied_modules":          _parse_list(t.unapplied_modules),
+            "is_trained":                 is_trained,
+            "training_count":             training_count,
         })
 
     # Calculate pagination metadata
@@ -171,11 +172,12 @@ def get_teacher(teacher_id: str, session: Session = Depends(get_session)):
     # Return teacher with parsed JSON fields and training history
     return {
         **teacher.dict(),
-        "subject_specializations": _parse_list(teacher.subject_specializations),
-        "grade_levels_taught":     _parse_list(teacher.grade_levels_taught),
-        "low_confidence_subjects": _parse_list(teacher.low_confidence_subjects),
-        "unapplied_modules":       _parse_list(teacher.unapplied_modules),
-        "trainings":               [t.dict() for t in trainings],
+        "subject_specializations":     _parse_list(teacher.subject_specializations),
+        "subjects_currently_teaching": _parse_list(teacher.subjects_currently_teaching),
+        "grade_levels_taught":        _parse_list(teacher.grade_levels_taught),
+        "low_confidence_subjects":    _parse_list(teacher.low_confidence_subjects),
+        "unapplied_modules":          _parse_list(teacher.unapplied_modules),
+        "trainings":                  [t.dict() for t in trainings],
     }
 
 
@@ -214,6 +216,7 @@ def register_teacher(payload: TeacherCreate, session: Session = Depends(get_sess
         highest_qualification=payload.highest_qualification,
         # Convert list fields to JSON strings for storage
         subject_specializations=json.dumps(payload.subject_specializations or []),
+        subjects_currently_teaching=json.dumps(payload.subjects_currently_teaching or []),
         grade_levels_taught=json.dumps(payload.grade_levels_taught or []),
         low_confidence_subjects=json.dumps(payload.low_confidence_subjects or []),
         unapplied_modules=json.dumps(payload.unapplied_modules or []),
