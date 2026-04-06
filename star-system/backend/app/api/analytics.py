@@ -162,18 +162,19 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
 
     # Write header row
     writer.writerow([
-        "ID", "Full Name", "Region", "Division", "School",
+        "ID", "Full Name", "Region", "Province", "City", "Division", "School",
         "Position", "Years Experience", "Highest Qualification",
-        "Subject Specializations", "Is Trained", "Source", "Data Confidence",
+        "Subject Specializations", "Grade Levels Taught", "Is Trained", "Source", "Data Confidence",
     ])
 
     # Write data rows
     for t in teachers:
         specs = ", ".join(json.loads(t.subject_specializations or "[]"))
+        grades = ", ".join(json.loads(t.grade_levels_taught or "[]"))
         writer.writerow([
-            t.id, t.full_name, t.region, t.division or "", t.school_name or "",
+            t.id, t.full_name, t.region, t.province or "", t.city or "", t.division or "", t.school_name or "",
             t.position or "", t.years_experience or "", t.highest_qualification or "",
-            specs, t.id in trained_ids, t.source, t.data_confidence,
+            specs, grades, t.id in trained_ids, t.source, t.data_confidence,
         ])
 
     output.seek(0)

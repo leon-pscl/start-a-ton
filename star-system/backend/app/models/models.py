@@ -134,6 +134,124 @@ def normalize_subject(raw: str) -> str:
     return SUBJECT_ALIASES.get(raw.strip().upper(), raw.strip())
 
 
+def normalize_city(raw: str) -> str:
+    """
+    Convert user-provided city name to canonical form.
+
+    Handles common variations:
+    - "City of Manila" → "Manila City"
+    - "MANILA CITY" → "Manila City"
+    - "Manila" → "Manila City" (for cities that typically have "City" suffix)
+
+    Args:
+        raw: The raw city name from user input or import
+
+    Returns:
+        str: Normalized city name
+    """
+    if not raw:
+        return raw
+
+    city = raw.strip()
+    upper = city.upper()
+
+    # Pattern: "City of X" → "X City"
+    if upper.startswith("CITY OF "):
+        city = upper[8:] + " CITY"
+        upper = city
+
+    # Pattern: "X City, Province" → extract just "X City"
+    if ", " in city:
+        city = city.split(", ")[0]
+        upper = city.upper()
+
+    # Common city aliases mapping
+    CITY_ALIASES = {
+        # NCR
+        "MANILA": "Manila City",
+        "MANILA CITY": "Manila City",
+        "CITY OF MANILA": "Manila City",
+        "QUEZON": "Quezon City",
+        "QUEZON CITY": "Quezon City",
+        "CITY OF QUEZON": "Quezon City",
+        "CALOOCAN": "Caloocan City",
+        "CALOOCAN CITY": "Caloocan City",
+        "CITY OF CALOOCAN": "Caloocan City",
+        "LAS PIÑAS": "Las Piñas City",
+        "LAS PINAS": "Las Piñas City",
+        "LAS PIÑAS CITY": "Las Piñas City",
+        "MAKATI": "Makati City",
+        "MAKATI CITY": "Makati City",
+        "MALABON": "Malabon City",
+        "MALABON CITY": "Malabon City",
+        "MANDALUYONG": "Mandaluyong City",
+        "MANDALUYONG CITY": "Mandaluyong City",
+        "MARIKINA": "Marikina City",
+        "MARIKINA CITY": "Marikina City",
+        "MUNTINLUPA": "Muntinlupa City",
+        "MUNTINLUPA CITY": "Muntinlupa City",
+        "NAVOTAS": "Navotas City",
+        "NAVOTAS CITY": "Navotas City",
+        "PASAY": "Pasay City",
+        "PASAY CITY": "Pasay City",
+        "PASIG": "Pasig City",
+        "PASIG CITY": "Pasig City",
+        "SAN JUAN": "San Juan City",
+        "SAN JUAN CITY": "San Juan City",
+        "TAGUIG": "Taguig City",
+        "TAGUIG CITY": "Taguig City",
+        "VALENZUELA": "Valenzuela City",
+        "VALENZUELA CITY": "Valenzuela City",
+        # Common cities outside NCR
+        "CEBU": "Cebu City",
+        "CEBU CITY": "Cebu City",
+        "CITY OF CEBU": "Cebu City",
+        "DAVAO": "Davao City",
+        "DAVAO CITY": "Davao City",
+        "CITY OF DAVAO": "Davao City",
+        "BAGUIO": "Baguio City",
+        "BAGUIO CITY": "Baguio City",
+        "CITY OF BAGUIO": "Baguio City",
+        "ANGELES": "Angeles City",
+        "ANGELES CITY": "Angeles City",
+        "BACOLOD": "Bacolod City",
+        "BACOLOD CITY": "Bacolod City",
+        "ILOILO": "Iloilo City",
+        "ILOILO CITY": "Iloilo City",
+        "CITY OF ILOILO": "Iloilo City",
+        "CAGAYAN DE ORO": "Cagayan de Oro City",
+        "CAGAYAN DE ORO CITY": "Cagayan de Oro City",
+        "ZAMBOANGA": "Zamboanga City",
+        "ZAMBOANGA CITY": "Zamboanga City",
+        "ANTIPOLON": "Antipolo City",
+        "ANTIPOLLO": "Antipolo City",
+        "ANTIPOLLO CITY": "Antipolo City",
+        "ANTIPOLLO": "Antipolo City",
+        "ANTIPOLLO CITY": "Antipolo City",
+        "ANTIPOLON CITY": "Antipolo City",
+        "ANTIPOLO": "Antipolo City",
+        "ANTIPOLO CITY": "Antipolo City",
+        "GENERAL SANTOS": "General Santos City",
+        "GENERAL SANTOS CITY": "General Santos City",
+        "PUERTO PRINCESA": "Puerto Princesa City",
+        "PUERTO PRINCESA CITY": "Puerto Princesa City",
+    }
+
+    # Check aliases first
+    if upper in CITY_ALIASES:
+        return CITY_ALIASES[upper]
+
+    # If not in aliases, apply title case with "City" suffix if needed
+    # e.g., "DAGUPAN" → "Dagupan City", "DAGUPAN CITY" → "Dagupan City"
+    if upper.endswith(" CITY"):
+        return city[:-5].title() + " City"  # "DAGUPAN CITY" → "Dagupan City"
+    elif upper.endswith("CITY"):
+        return city[:-4].title() + " City"  # "DAGUPANCITY" → "Dagupan City"
+
+    # Return with title case
+    return city.title()
+
+
 # ---------------------------------------------------------------------------
 # Teacher Model
 # ---------------------------------------------------------------------------

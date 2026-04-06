@@ -15,7 +15,7 @@ from typing import Optional
 import json
 from datetime import datetime
 from app.core.database import get_session
-from app.models.models import Teacher, TeacherCreate, TrainingRecord
+from app.models.models import Teacher, TeacherCreate, TrainingRecord, normalize_region, normalize_city
 
 # Create a router with the /teachers prefix and "teachers" tag for API docs
 router = APIRouter(prefix="/teachers", tags=["teachers"])
@@ -200,11 +200,12 @@ def register_teacher(payload: TeacherCreate, session: Session = Depends(get_sess
     now = datetime.utcnow()
 
     # Create the teacher record with JSON-serialized list fields
+    # Normalize region and city names to canonical forms
     teacher = Teacher(
         full_name=payload.full_name,
-        region=payload.region,
-        province=payload.province,       # ← new
-        city=payload.city,               # ← new
+        region=normalize_region(payload.region),
+        province=payload.province,
+        city=normalize_city(payload.city) if payload.city else None,
         division=payload.division,
         school_name=payload.school_name,
         school_type=payload.school_type,
