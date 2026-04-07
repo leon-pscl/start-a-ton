@@ -293,6 +293,7 @@ class TeacherBase(SQLModel):
     low_confidence_subjects: Optional[str] = None
     unapplied_modules: Optional[str] = None
     distance_to_training: Optional[str] = None
+    student_count: Optional[int] = None               # ← new
     preferred_format: Optional[str] = None
     source: str = "self-registry"
     data_confidence: float = 1.0
@@ -331,6 +332,7 @@ class TeacherCreate(TeacherBase):
     trainings_attended: Optional[List[str]] = []
     province: Optional[str] = None    # ← new
     city: Optional[str] = None        # ← new
+    student_count: Optional[int] = None # ← new
 
 
 class TeacherRead(TeacherBase):

@@ -28,20 +28,21 @@ from app.models.models import Teacher, TrainingRecord, CANONICAL_REGIONS, STAR_M
 # Gap Score Weights
 # ---------------------------------------------------------------------------
 
-# Weights for each component in the final score
-# These were determined based on program priorities:
-# - Coverage (untrained teachers) is weighted highest as it's the primary concern
-# - Mismatch (teaching outside specialization) affects teaching quality
-# - Distance and Recency are secondary factors
-WEIGHTS = {
-    "distance": 0.20,   # Accessibility of training centers
-    "coverage": 0.35,   # Percentage of teachers without any training
+# Weights for each component in the Weighted Priority Index (WPI)
+# Higher weights indicate greater impact on identifying priority areas.
+WPI_WEIGHTS = {
+    "coverage": 0.30,   # Percentage of teachers without any training
     "mismatch": 0.25,   # Subject-qualification mismatch
-    "recency":  0.20,   # Training more than 3 years old
+    "workload": 0.20,   # Student-to-teacher ratio burden
+    "distance": 0.15,   # Accessibility (far from centers)
+    "recency":  0.10,   # Stale training (3+ years ago)
 }
 
+# The "Reward Factor" for historical participation.
+# Regions with high per-teacher training completion get this subtracted from their gap.
+HISTORICAL_REWARD_WEIGHT = 0.15
+
 # School year threshold for recency calculation
-# Teachers trained before this year are considered "not recently trained"
 CURRENT_SY_START = 2022
 
 
@@ -151,26 +152,59 @@ def compute_region_gap(region: str, session: Session) -> dict:
     recency_score = not_recent / total
 
     # ---------------------------------------------------------------
-    # Compute Weighted Average
+    # Workload Score: Teacher-to-Student Ratio
     # ---------------------------------------------------------------
-    gap = (
-        WEIGHTS["distance"] * distance_score
-        + WEIGHTS["coverage"] * coverage_score
-        + WEIGHTS["mismatch"] * mismatch_score
-        + WEIGHTS["recency"]  * recency_score
+    # Calculate average student count per teacher in this region
+    # A ratio of 45+ is considered "high burden" (1.0 gap)
+    total_students = sum(t.student_count or 0 for t in teachers)
+    avg_students = total_students / total
+    workload_score = min(1.0, avg_students / 45.0)
+
+    # ---------------------------------------------------------------
+    # Engagement Score: Historical Participation Reward
+    # ---------------------------------------------------------------
+    # Reward regions where trained teachers have completed multiple modules
+    training_records = session.exec(
+        select(TrainingRecord).where(TrainingRecord.region == region)
+    ).all()
+    # Average modules completed per trained teacher
+    trained_count = total - untrained
+    modules_per_trained = len(training_records) / trained_count if trained_count > 0 else 0
+    # Normalize: 4+ modules is a "perfect" reward score
+    engagement_reward = min(1.0, modules_per_trained / 4.0)
+
+    # ---------------------------------------------------------------
+    # Compute Weighted Priority Index (WPI)
+    # ---------------------------------------------------------------
+    # Base gap calculation
+    raw_gap = (
+        WPI_WEIGHTS["coverage"] * coverage_score
+        + WPI_WEIGHTS["mismatch"] * mismatch_score
+        + WPI_WEIGHTS["workload"] * workload_score
+        + WPI_WEIGHTS["distance"] * distance_score
+        + WPI_WEIGHTS["recency"]  * recency_score
     )
+
+    # Apply Historical Reward
+    # Rewarding reduces the gap score (making it a lower priority for BASIC intervention
+    # but potentially higher for advanced modules - depending on interpretation.
+    gap = max(0.0, raw_gap - (HISTORICAL_REWARD_WEIGHT * engagement_reward))
 
     return {
         "region": region,
         "total_teachers": total,
-        "trained_count": total - untrained,
+        "total_students": total_students,
+        "trained_count": trained_count,
         "untrained_count": untrained,
         "gap_score": round(gap, 3),
         "gap_level": _level(gap),
+        "avg_student_ratio": round(avg_students, 1),
+        "engagement_reward": round(engagement_reward, 3),
         "components": {
-            "distance_score": round(distance_score, 3),
             "coverage_score": round(coverage_score, 3),
             "mismatch_score": round(mismatch_score, 3),
+            "workload_score": round(workload_score, 3),
+            "distance_score": round(distance_score, 3),
             "recency_score":  round(recency_score,  3),
         },
     }
@@ -269,10 +303,10 @@ def compute_province_gaps(session: Session) -> list[dict]:
                     mismatch += 1
 
         gap = (
-            WEIGHTS['coverage'] * (untrained / total) +
-            WEIGHTS['mismatch'] * (mismatch / total) +
-            WEIGHTS['recency']  * (not_recent / total) +
-            WEIGHTS['distance'] * (far / total)
+            WPI_WEIGHTS['coverage'] * (untrained / total) +
+            WPI_WEIGHTS['mismatch'] * (mismatch / total) +
+            WPI_WEIGHTS['recency']  * (not_recent / total) +
+            WPI_WEIGHTS['distance'] * (far / total)
         )
 
         results.append({
@@ -362,10 +396,10 @@ def compute_city_gaps(session: Session) -> list[dict]:
                     mismatch += 1
 
         gap = (
-            WEIGHTS['coverage'] * (untrained / total) +
-            WEIGHTS['mismatch'] * (mismatch / total) +
-            WEIGHTS['recency']  * (not_recent / total) +
-            WEIGHTS['distance'] * (far / total)
+            WPI_WEIGHTS['coverage'] * (untrained / total) +
+            WPI_WEIGHTS['mismatch'] * (mismatch / total) +
+            WPI_WEIGHTS['recency']  * (not_recent / total) +
+            WPI_WEIGHTS['distance'] * (far / total)
         )
 
         results.append({
