@@ -218,6 +218,16 @@ export const GAP_COLORS = {
   high:     { bg: 'bg-red-100',   text: 'text-red-800',   hex: '#dc2626' },
 }
 
+/**
+ * Color configurations for Impact Score levels. 
+ * High reach = Indigo/Purple, Low reach = Slate/Blue.
+ */
+export const IMPACT_COLORS = {
+  high:     { bg: 'bg-indigo-100', text: 'text-indigo-800', hex: '#4f46e5' },
+  moderate: { bg: 'bg-violet-100', text: 'text-violet-800', hex: '#7c3aed' },
+  low:      { bg: 'bg-slate-100',  text: 'text-slate-600',  hex: '#64748b' },
+}
+
 // ---------------------------------------------------------------------------
 // Utility Functions
 // ---------------------------------------------------------------------------

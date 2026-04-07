@@ -197,6 +197,14 @@ export const exportCSV = (region = '') => {
   window.open(`${BASE}/analytics/export/csv${qs}`, '_blank')
 }
 
+/**
+ * Export executive summary as PDF file download.
+ * Opens the download in a new browser tab.
+ */
+export const exportPDF = () => {
+  window.open(`${BASE}/analytics/export/pdf`, '_blank')
+}
+
 export const getProvinces = () => request('/analytics/provinces')
 export const getCities    = () => request('/analytics/cities')
 export const getSubjectShortage = () => request('/analytics/subject-shortage')

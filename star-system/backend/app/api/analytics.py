@@ -22,6 +22,8 @@ from datetime import datetime
 from app.core.database import get_session
 from app.models.models import Teacher, TrainingRecord, STAR_MODULES
 from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps, compute_subject_shortage
+from app.services.recommendation import rank_interventions
+from app.services.reporting import generate_executive_pdf
 
 # Create router with /analytics prefix
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -89,8 +91,10 @@ def get_regions(session: Session = Depends(get_session)):
     - Component scores for the four factors
 
     Used by the Regions page to display the map and table.
+    Now includes impact scoring and recommendations.
     """
-    return compute_all_regions(session)
+    results = compute_all_regions(session)
+    return rank_interventions(results)
 
 
 @router.get("/regions/{region}")
@@ -186,6 +190,36 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode()),
         media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+@router.get("/export/pdf")
+def export_pdf(session: Session = Depends(get_session)):
+    """
+    Export detailed PDF executive summary.
+    
+    Generates a stakeholder-ready report with:
+    - National overview
+    - Priority visualizations (charts)
+    - Regional intervention mapping
+    - Strategic policy recommendations
+    """
+    results = compute_all_regions(session)
+    ranked = rank_interventions(results)
+    
+    pdf_path = generate_executive_pdf(ranked)
+    
+    with open(pdf_path, "rb") as f:
+        pdf_data = f.read()
+    
+    # Cleanup tmp file? (In production use a background task or unique names)
+    # os.remove(pdf_path) 
+    
+    filename = f"star_executive_summary_{datetime.now().strftime('%Y%m%d')}.pdf"
+    
+    return StreamingResponse(
+        io.BytesIO(pdf_data),
+        media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
     

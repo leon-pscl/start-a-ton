@@ -364,9 +364,16 @@ export default function RegionsPage() {
                 <div className="flex items-start justify-between mb-5">
                   <div>
                     <h2 className="font-display font-bold text-slate-800 text-lg">{detail.region}</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">{detail.total_teachers} teachers registered</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {detail.total_teachers} teachers &middot; {detail.total_students?.toLocaleString()} students
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {detail.impact_score > 0 && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md">
+                        Impact: {detail.impact_score.toLocaleString()}
+                      </span>
+                    )}
                     <GapBadge level={detail.gap_level} />
                     <button
                       onClick={() => { setSelected(null); setDetail(null) }}
@@ -377,28 +384,68 @@ export default function RegionsPage() {
                   </div>
                 </div>
 
-                {/* Gap score components */}
                 <div className="mb-6">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                    Gap score components
+                    Weighted Priority Index (WPI) Components
                   </p>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     {[
-                      { label: 'Training coverage',   key: 'coverage_score', desc: 'Untrained teachers' },
-                      { label: 'Competency mismatch', key: 'mismatch_score', desc: 'Out of specialization' },
-                      { label: 'Training recency',    key: 'recency_score',  desc: 'No training in 3 yrs' },
-                      { label: 'Distance / access',   key: 'distance_score', desc: '3hrs+ from center' },
-                    ].map(({ label, key, desc }) => (
-                      <div key={key} className="bg-slate-50 rounded-lg p-3">
+                      { label: 'Training coverage',   key: 'coverage_score', desc: 'Untrained teachers (30%)' },
+                      { label: 'Competency mismatch', key: 'mismatch_score', desc: 'Out of specialization (25%)' },
+                      { label: 'Instructional workload', key: 'workload_score', desc: `${detail.avg_student_ratio}:1 S/T ratio (20%)` },
+                      { label: 'Distance / access',   key: 'distance_score', desc: 'Connectivity barriers (15%)' },
+                      { label: 'Training recency',    key: 'recency_score',  desc: 'Stale skills (10%)' },
+                      { 
+                        label: 'Participation reward', 
+                        key: 'reward', 
+                        desc: 'Historical engagement bonus',
+                        value: detail.engagement_reward,
+                        isReward: true
+                      },
+                    ].map(({ label, key, desc, value, isReward }) => (
+                      <div key={key} className={`rounded-lg p-3 ${isReward ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50'}`}>
                         <div className="flex justify-between text-xs mb-2">
-                          <span className="font-medium text-slate-700">{label}</span>
+                          <span className={`font-medium ${isReward ? 'text-indigo-700' : 'text-slate-700'}`}>{label}</span>
                         </div>
-                        <GapBar score={detail.components?.[key] ?? 0} />
-                        <p className="text-xs text-slate-400 mt-1">{desc}</p>
+                        {isReward ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-indigo-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500" style={{ width: `${(value || 0) * 100}%` }} />
+                            </div>
+                            <span className="text-[10px] font-bold text-indigo-600">{(value || 0).toFixed(2)}</span>
+                          </div>
+                        ) : (
+                          <GapBar score={detail.components?.[key] ?? 0} />
+                        )}
+                        <p className={`text-[10px] mt-1 ${isReward ? 'text-indigo-400' : 'text-slate-400'}`}>{desc}</p>
                       </div>
                     ))}
                   </div>
                 </div>
+
+                {/* Intelligent Recommendations */}
+                {detail.recommendations && detail.recommendations.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-500"><path d="M12 2v4"/><path d="m16.2 4.2 2.8 2.8"/><path d="M18 12h4"/><path d="m16.2 19.8 2.8-2.8"/><path d="M12 18v4"/><path d="m4.2 19.8 2.8-2.8"/><path d="M2 12h4"/><path d="m4.2 4.2 2.8 2.8"/></svg>
+                      Prescriptive stategy
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {detail.recommendations.map((rec, idx) => (
+                        <div key={idx} className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl p-4 shadow-sm">
+                          <div className="flex items-start gap-3">
+                            <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                              <span className="text-[10px] font-bold text-indigo-600">{idx + 1}</span>
+                            </div>
+                            <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                              {rec}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Module uptake heatmap */}
                 <div className="mb-6">
@@ -445,6 +492,7 @@ export default function RegionsPage() {
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500">Region</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500">Teachers</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500">Trained</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500">Ratio</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 w-40">Gap score</th>
               <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500">Level</th>
             </tr>
@@ -466,6 +514,9 @@ export default function RegionsPage() {
                       ? Math.round(r.trained_count / r.total_teachers * 100)
                       : 0}%)
                   </span>
+                </td>
+                <td className="px-4 py-3 text-right text-slate-500 font-medium whitespace-nowrap">
+                  {r.avg_student_ratio}:1
                 </td>
                 <td className="px-4 py-3 w-40"><GapBar score={r.gap_score} /></td>
                 <td className="px-4 py-3 text-center"><GapBadge level={r.gap_level} /></td>
