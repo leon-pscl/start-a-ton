@@ -282,6 +282,7 @@ def _make_teacher(session, region, province, city, profile):
         low_confidence_subjects=json.dumps(low_conf),
         unapplied_modules=json.dumps(random.sample(STAR_MODULES, k=random.randint(0, 3))),
         distance_to_training=("3hrs+" if is_far else random.choice(["<1hr", "1-3hrs"])),
+        student_count=(random.randint(35, 55) if region == "NCR" else random.randint(15, 35)),
         preferred_format=random.choice(FORMATS),
         source="seed",
         data_confidence=0.9,
