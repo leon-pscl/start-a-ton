@@ -6,6 +6,11 @@
   body {
     @apply bg-slate-50 text-slate-800 font-sans antialiased;
   }
+
+  /* Ensure html is also responsive */
+  html {
+    @apply scroll-smooth;
+  }
 }
 
 @layer components {
@@ -16,4 +21,33 @@
   .badge-low      { @apply bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full; }
   .badge-moderate { @apply bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5 rounded-full; }
   .badge-high     { @apply bg-red-100   text-red-800   text-xs font-medium px-2 py-0.5 rounded-full; }
+  
+  /* Responsive grid utilities for mobile-first design */
+  .grid-responsive {
+    @apply grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .grid-responsive-2 {
+    @apply grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2;
+  }
+
+  /* Responsive padding for sections */
+  .section-padding {
+    @apply p-4 sm:p-6 md:p-8;
+  }
+
+  /* Responsive heading sizes */
+  .text-responsive-lg {
+    @apply text-2xl sm:text-3xl md:text-4xl;
+  }
+
+  .text-responsive-md {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+}
+
+/* Ensure proper body and html height for flex layouts */
+html, body, #root {
+  height: 100%;
+  width: 100%;
 }

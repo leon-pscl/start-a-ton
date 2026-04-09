@@ -128,6 +128,7 @@ export function EmptyState({ message }) {
 
 /**
  * Standard page header with title, subtitle, and optional action buttons.
+ * Responsive: stacks vertically on mobile, horizontally on desktop.
  * Used at the top of most pages for consistent layout.
  *
  * @param {object} props
@@ -137,12 +138,16 @@ export function EmptyState({ message }) {
  */
 export function PageHeader({ title, subtitle, actions }) {
   return (
-    <div className="flex items-start justify-between mb-6">
-      <div>
-        <h1 className="text-xl font-display font-bold text-slate-800">{title}</h1>
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+      <div className="flex-1">
+        <h1 className="text-xl sm:text-2xl font-display font-bold text-slate-800">{title}</h1>
         {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
-      {actions && <div className="flex gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

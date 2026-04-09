@@ -16,6 +16,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/shared/Sidebar'
+import MobileNav from './components/shared/MobileNav'
 import Dashboard   from './pages/Dashboard'
 import RegionsPage from './pages/Regions'
 import TeachersPage from './pages/Teachers'
@@ -33,17 +34,23 @@ import SchoolTeacherManagementPage from './pages/SchoolTeacherManagement'
 
 /**
  * Layout wrapper for pages with sidebar navigation.
- * Provides consistent structure: sidebar on left, scrollable main content on right.
+ * Desktop: sidebar on left, main content on right
+ * Mobile: hamburger menu at top, full-width stacked content
  *
  * @param {object} props
  * @param {React.ReactNode} props.children - Page content to render
  */
 function Layout({ children }) {
   return (
-    <div className="flex min-h-screen">
+    <div className="flex flex-col min-h-screen sm:flex-row">
+      {/* Mobile navigation - only visible on small screens */}
+      <MobileNav />
+      
+      {/* Desktop sidebar - only visible on sm and larger screens */}
       <Sidebar />
-      {/* Main content area - takes remaining width */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      
+      {/* Main content area - responsive width and scrolling */}
+      <main className="flex-1 overflow-auto w-full">{children}</main>
     </div>
   )
 }

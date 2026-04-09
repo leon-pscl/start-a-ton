@@ -88,7 +88,7 @@ export default function TeachersPage() {
       {/* ----------------------------------------------------------------------- */}
       {/* Filters Row                                                            */}
       {/* ----------------------------------------------------------------------- */}
-      <div className="card mb-5 flex flex-wrap gap-3 items-center">
+      <div className="card mb-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
         {/* Text search */}
         <input
           type="text"
@@ -96,7 +96,7 @@ export default function TeachersPage() {
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && load(0)}
-          className="input flex-1 min-w-48 text-sm"
+          className="input flex-1 text-sm"
         />
         {/* Region filter */}
         <Select
@@ -104,7 +104,7 @@ export default function TeachersPage() {
           onChange={v => { setRegion(v) }}
           options={REGIONS}
           placeholder="All regions"
-          className="w-40 text-sm"
+          className="text-sm sm:w-40"
         />
         {/* Subject filter */}
         <Select
@@ -112,7 +112,7 @@ export default function TeachersPage() {
           onChange={v => { setSubject(v) }}
           options={SUBJECTS}
           placeholder="All subjects"
-          className="w-40 text-sm"
+          className="text-sm sm:w-40"
         />
         {/* Training status filter */}
         <Select
@@ -123,7 +123,7 @@ export default function TeachersPage() {
             { value: 'no',  label: 'Not trained' },
           ]}
           placeholder="Any training"
-          className="w-36 text-sm"
+          className="text-sm sm:w-36"
         />
         <button onClick={() => load(0)} className="btn-primary text-xs">Apply</button>
       </div>

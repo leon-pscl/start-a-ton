@@ -180,11 +180,17 @@ export default function PhilippinesMap({
 
       leafletRef.current = { map, L }
       map.on('zoomend', () => setZoom(map.getZoom()))
+      
+      // Handle responsive resizing (for mobile orientation change, etc)
+      const resizeObserver = new ResizeObserver(() => {
+        map.invalidateSize()
+      })
+      resizeObserver.observe(mapRef.current)
 
       Promise.all([
-        fetch(GEOJSON_URLS.regions).then(r => r.json()),
-        fetchMergedCodes(GEOJSON_URLS.provinces, PROVINCE_CODES),
-        fetchMergedCodes(GEOJSON_URLS.cities, CITY_CODES),
+        fetch(GEOJSON_URLS.regions).then(r => r.json()).catch(err => { console.error('Failed to load regions GeoJSON:', err); throw err }),
+        fetchMergedCodes(GEOJSON_URLS.provinces, PROVINCE_CODES).catch(err => { console.error('Failed to load provinces GeoJSON:', err); return { type: 'FeatureCollection', features: [] } }),
+        fetchMergedCodes(GEOJSON_URLS.cities, CITY_CODES).catch(err => { console.error('Failed to load cities GeoJSON:', err); return { type: 'FeatureCollection', features: [] } }),
       ]).then(([regionsGeo, provincesGeo, citiesGeo]) => {
 
         // --- Region layer ---
@@ -234,7 +240,7 @@ export default function PhilippinesMap({
               mouseout: () => setTooltip(null),
             })
           },
-        })
+        }).addTo(map)
 
         // --- City layer ---
         layersRef.current.cities = L.geoJSON(citiesGeo, {
@@ -257,7 +263,7 @@ export default function PhilippinesMap({
               mouseout: () => setTooltip(null),
             })
           },
-        })
+        }).addTo(map)
 
         setLoading(false)
 
@@ -268,12 +274,19 @@ export default function PhilippinesMap({
               (feature) => styleRegion(feature, null, gapRef.current)
             )
           }
+          // Initial zoom layer visibility
+          const { map } = leafletRef.current ?? {}
+          const currentZoom = map?.getZoom() ?? (compact ? 5 : 6)
+          setZoom(currentZoom)
         }, 300)
 
       }).catch(err => {
         console.error('GeoJSON load failed:', err)
         setLoading(false)
       })
+    }).catch(err => {
+      console.error('Failed to import Leaflet:', err)
+      setLoading(false)
     })
 
     return () => {
@@ -286,9 +299,13 @@ export default function PhilippinesMap({
 
   // Show/hide layers based on zoom level
   useEffect(() => {
-    const { map } = leafletRef.current ?? {}
+    if (!leafletRef.current?.map) return
+    
+    const map = leafletRef.current.map
     const { regions: rL, provinces: pL, cities: cL } = layersRef.current
-    if (!map || !rL || !pL || !cL) return
+
+    // If any layer is null, exit (they may not be loaded yet)
+    if (!rL || !pL || !cL) return
 
     if (zoom >= 10) {
       if (!map.hasLayer(cL)) map.addLayer(cL)
@@ -306,7 +323,7 @@ export default function PhilippinesMap({
   }, [zoom])
 
   return (
-    <div className="relative w-full" style={{ height: compact ? 300 : 580 }}>
+    <div className="relative w-full" style={{ height: compact ? '300px' : '580px' }}>
 
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-10 rounded-xl">
@@ -368,8 +385,8 @@ export default function PhilippinesMap({
 
       <div
         ref={mapRef}
-        className="w-full h-full rounded-xl overflow-hidden"
-        style={{ zIndex: 0 }}
+        className="w-full rounded-xl overflow-hidden"
+        style={{ height: '100%', zIndex: 0 }}
       />
     </div>
   )

@@ -1,30 +1,16 @@
 /**
- * Sidebar Navigation Component
+ * Mobile Navigation Component
  *
- * Main navigation sidebar for the STAR system.
- * Provides links to all major sections of the application:
- * - Dashboard (overview)
- * - Regions (gap analysis map)
- * - Teachers (teacher database)
- * - Import (data upload)
- * - Register (self-registration portal)
- *
- * Uses React Router's NavLink for active state styling.
+ * Hamburger menu for mobile devices.
+ * Opens/closes the navigation drawer on small screens.
  */
 
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
 
-// ---------------------------------------------------------------------------
-// Navigation Configuration
-// ---------------------------------------------------------------------------
-
 /**
- * Navigation items for the sidebar.
- * Each item has:
- * - to: Route path
- * - label: Display text
- * - icon: SVG icon component
+ * Navigation items for the mobile menu.
  */
 const NAV = [
   { to: '/dashboard', label: 'Overview',       icon: GridIcon },
@@ -39,66 +25,114 @@ const NAV = [
   { to: '/register',  label: 'Teacher portal', icon: PersonIcon },
 ]
 
-// ---------------------------------------------------------------------------
-// Sidebar Component
-// ---------------------------------------------------------------------------
+/**
+ * Mobile navigation component with hamburger menu.
+ * Returns null on desktop (lg breakpoint and above).
+ * Shows hamburger button and offscreen nav drawer on mobile/tablet.
+ */
+export default function MobileNav() {
+  const [isOpen, setIsOpen] = useState(false)
 
-export default function Sidebar() {
+  const handleNavClick = () => {
+    setIsOpen(false) // Close menu when a nav link is clicked
+  }
+
   return (
-    <aside className="w-56 min-h-screen bg-white border-r border-slate-100 flex flex-col hidden sm:flex">
-      {/* Logo and branding */}
-      <div className="px-5 py-5 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          {/* STAR logo */}
-          <div className="w-7 h-7 bg-star-600 rounded-lg flex items-center justify-center">
+    <>
+      {/* Hamburger button - only visible on mobile/tablet */}
+      <div className="sm:hidden bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 bg-star-600 rounded-lg flex items-center justify-center">
             <span className="text-white text-xs font-bold">S</span>
           </div>
-          <div>
-            <p className="text-sm font-display font-bold text-slate-800 leading-none">STAR-IDS</p>
-            <p className="text-[10px] text-slate-400 mt-0.5">DOST-SEI</p>
+          <p className="text-sm font-display font-bold text-slate-800">STAR-IDS</p>
+        </div>
+        
+        {/* Hamburger icon button */}
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          aria-label="Toggle menu"
+        >
+          {isOpen ? (
+            /* Close X icon */
+            <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          ) : (
+            /* Hamburger menu icon */
+            <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile drawer backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 sm:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Mobile navigation drawer */}
+      <nav
+        className={clsx(
+          'fixed top-0 left-0 h-screen w-56 bg-white border-r border-slate-100 z-50 flex flex-col overflow-y-auto',
+          'transform transition-transform duration-300 sm:hidden',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {/* Logo and branding */}
+        <div className="px-5 py-5 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-star-600 rounded-lg flex items-center justify-center">
+              <span className="text-white text-xs font-bold">S</span>
+            </div>
+            <div>
+              <p className="text-sm font-display font-bold text-slate-800 leading-none">STAR-IDS</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">DOST-SEI</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Navigation links */}
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-        {NAV.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            /**
-             * Apply active styling when the route matches.
-             * Uses clsx for conditional class merging.
-             */
-            className={({ isActive }) => clsx(
-              'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
-              isActive
-                ? 'bg-star-50 text-star-700 font-medium'      // Active state
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'  // Inactive
-            )}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </NavLink>
-        ))}
+        {/* Navigation links */}
+        <div className="flex-1 px-3 py-4 flex flex-col gap-0.5">
+          {NAV.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={handleNavClick}
+              className={({ isActive }) => clsx(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
+                isActive
+                  ? 'bg-star-50 text-star-700 font-medium'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+
+        {/* Footer with version info */}
+        <div className="px-5 py-4 border-t border-slate-100">
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            STAR Integrated Data System<br />
+            DOST-SEI · MVP v1.0
+          </p>
+        </div>
       </nav>
-
-      {/* Footer with version info */}
-      <div className="px-5 py-4 border-t border-slate-100">
-        <p className="text-[10px] text-slate-400 leading-relaxed">
-          STAR Integrated Data System<br />
-          DOST-SEI · MVP v1.0
-        </p>
-      </div>
-    </aside>
+    </>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Icon Components
+// Icon Components (duplicated from Sidebar)
 // ---------------------------------------------------------------------------
 
-/** Grid icon - used for Dashboard/Overview */
 function GridIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,7 +142,6 @@ function GridIcon({ className }) {
   )
 }
 
-/** Map icon - used for Regions */
 function MapIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +151,6 @@ function MapIcon({ className }) {
   )
 }
 
-/** Users icon - used for Teachers */
 function UsersIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,7 +160,6 @@ function UsersIcon({ className }) {
   )
 }
 
-/** Upload icon - used for Import */
 function UploadIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,7 +169,6 @@ function UploadIcon({ className }) {
   )
 }
 
-/** Person icon - used for Registration portal */
 function PersonIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -148,7 +178,6 @@ function PersonIcon({ className }) {
   )
 }
 
-/** School icon - used for school priorities */
 function SchoolIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,7 +187,6 @@ function SchoolIcon({ className }) {
   )
 }
 
-/** Chart icon - used for regional insights */
 function ChartIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +200,6 @@ function ChartIcon({ className }) {
   )
 }
 
-/** Bolt icon - used for intervention planning */
 function BoltIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,7 +209,6 @@ function BoltIcon({ className }) {
   )
 }
 
-/** Office icon - used for School Division Office view */
 function OfficeIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,7 +218,6 @@ function OfficeIcon({ className }) {
   )
 }
 
-/** Clipboard users icon - used for school teacher management */
 function ClipboardUsersIcon({ className }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
