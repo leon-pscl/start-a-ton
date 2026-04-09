@@ -279,14 +279,13 @@ class TeacherBase(SQLModel):
     """
     full_name: str
     region: str
-    province: Optional[str] = None    # ← new
-    city: Optional[str] = None        # ← new
+    province: Optional[str] = None
+    city: Optional[str] = None
     division: Optional[str] = None
     school_name: Optional[str] = None
     school_type: Optional[str] = None
     position: Optional[str] = None
     years_experience: Optional[int] = None
-    graduation_year: Optional[int] = None
     graduation_year: Optional[int] = None
     highest_qualification: Optional[str] = None
     degree_program: Optional[str] = None
@@ -297,7 +296,7 @@ class TeacherBase(SQLModel):
     low_confidence_subjects: Optional[str] = None
     unapplied_modules: Optional[str] = None
     distance_to_training: Optional[str] = None
-    student_count: Optional[int] = None               # ← new
+    student_count: Optional[int] = None
     preferred_format: Optional[str] = None
     preferred_relocation_regions: Optional[str] = None
     preferred_relocation_type: Optional[str] = None
@@ -305,7 +304,7 @@ class TeacherBase(SQLModel):
     source: str = "self-registry"
     data_confidence: float = 1.0
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None             # Last update timestamp
+    updated_at: Optional[datetime] = None
 
 
 class Teacher(TeacherBase, table=True):
