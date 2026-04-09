@@ -43,36 +43,56 @@ You can help users understand:
 
 Be concise and helpful. Format numbers with commas (e.g., "1,234 teachers")."""
 
-    if not context or not context.get("summary"):
-        return base_prompt + "\n\nNote: No current data context available. Ask the user to provide specific numbers if they ask about statistics."
+    if not context:
+        return base_prompt + "\n\nNo data loaded yet. Ask user to try again in a moment."
 
-    # Add actual data summary
-    summary = context.get("summary", {})
-    context_parts = ["""
-CURRENT DATA (use ONLY these numbers):
-"""]
+    context_parts = ["\n=== CURRENT SYSTEM DATA ===\n"]
 
-    if summary.get("total_teachers"):
-        context_parts.append(f"- Total teachers: {summary['total_teachers']:,}")
-    if summary.get("trained_teachers"):
-        context_parts.append(f"- Trained teachers: {summary['trained_teachers']:,}")
-    if summary.get("training_coverage_pct"):
-        context_parts.append(f"- Training coverage: {summary['training_coverage_pct']}%")
-    if summary.get("high_gap_regions"):
-        context_parts.append(f"- High-gap regions: {summary['high_gap_regions']}")
-    if summary.get("at_risk_schools"):
-        context_parts.append(f"- At-risk schools: {summary['at_risk_schools']}")
-    if summary.get("out_of_field_pct"):
-        context_parts.append(f"- Out-of-field teachers: {summary['out_of_field_pct']}%")
-    if summary.get("total_training_records"):
-        context_parts.append(f"- Total training records: {summary['total_training_records']:,}")
+    # Summary statistics
+    if context.get("summary"):
+        summary = context["summary"]
+        context_parts.append("## System Overview:")
+        if summary.get("total_teachers"):
+            context_parts.append(f"- Total teachers: {summary['total_teachers']:,}")
+        if summary.get("trained_teachers"):
+            context_parts.append(f"- Trained teachers: {summary['trained_teachers']:,}")
+        if summary.get("training_coverage_pct"):
+            context_parts.append(f"- Training coverage: {summary['training_coverage_pct']}%")
+        if summary.get("high_gap_regions"):
+            context_parts.append(f"- High-gap regions: {summary['high_gap_regions']}")
+        if summary.get("at_risk_schools"):
+            context_parts.append(f"- At-risk schools: {summary['at_risk_schools']}")
+        if summary.get("out_of_field_pct"):
+            context_parts.append(f"- Out-of-field teachers: {summary['out_of_field_pct']}%")
+        if summary.get("competency_distribution"):
+            dist = summary["competency_distribution"]
+            context_parts.append(f"- Competency levels: Low={dist.get('low', 0)}, Medium={dist.get('medium', 0)}, High={dist.get('high', 0)}")
+        context_parts.append("")
 
-    if summary.get("competency_distribution"):
-        dist = summary["competency_distribution"]
-        context_parts.append(f"- Competency distribution: Low={dist.get('low', 0)}, Medium={dist.get('medium', 0)}, High={dist.get('high', 0)}")
+    # Regional data
+    if context.get("regions"):
+        context_parts.append("## Regional Gap Analysis:")
+        for r in context["regions"]:
+            coverage = r.get('training_coverage_pct', 0) or 0
+            context_parts.append(
+                f"- {r['name']}: {r['gap_score']}% gap ({r['gap_level']}), "
+                f"{r['total_teachers']} teachers, {coverage:.0f}% coverage"
+            )
+        context_parts.append("")
+
+    # Top schools
+    if context.get("top_schools"):
+        context_parts.append("## Priority Schools (Top 20):")
+        for s in context["top_schools"]:
+            coverage = s.get('training_coverage_pct', 0) or 0
+            context_parts.append(
+                f"- {s['name']} ({s['region']}, {s.get('city', 'N/A')}): "
+                f"{s['total_teachers']} teachers, {coverage:.0f}% coverage, {s['priority_level']} priority"
+            )
+        context_parts.append("")
 
     if summary.get("star_modules"):
-        context_parts.append(f"- STAR modules: {', '.join(summary['star_modules'])}")
+        context_parts.append(f"## STAR Modules Available:\n{', '.join(summary['star_modules'])}")
 
     return base_prompt + "\n".join(context_parts)
 

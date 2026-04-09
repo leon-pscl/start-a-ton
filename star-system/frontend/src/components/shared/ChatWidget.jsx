@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { sendChat, getSummary } from '../../lib/api'
+import { sendChat, getSummary, getRegions, getSchools } from '../../lib/api'
 
 /**
  * Simple markdown renderer for chat messages.
@@ -97,11 +97,31 @@ export default function ChatWidget() {
   const [loading, setLoading] = useState(false)
   const [dataContext, setDataContext] = useState(null)
 
-  // Fetch summary data when chat opens
+  // Fetch all data when chat opens
   useEffect(() => {
     if (isOpen && !dataContext) {
-      getSummary()
-        .then(data => setDataContext(data))
+      Promise.all([getSummary(), getRegions(), getSchools()])
+        .then(([summary, regions, schools]) => {
+          setDataContext({
+            summary,
+            regions: regions.map(r => ({
+              name: r.region,
+              gap_score: Math.round((r.gap_score || 0) * 100),
+              gap_level: r.gap_level,
+              total_teachers: r.total_teachers,
+              trained_teachers: r.trained_teachers,
+              training_coverage_pct: r.training_coverage_pct
+            })),
+            top_schools: schools.slice(0, 20).map(s => ({
+              name: s.school_name,
+              region: s.region,
+              city: s.city,
+              total_teachers: s.total_teachers,
+              training_coverage_pct: s.training_coverage_pct,
+              priority_level: s.priority_level
+            }))
+          })
+        })
         .catch(() => setDataContext({}))
     }
   }, [isOpen, dataContext])
