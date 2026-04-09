@@ -326,12 +326,6 @@ class TeacherCreate(TeacherBase):
     strings before database storage. This allows the frontend to send
     arrays directly without worrying about JSON serialization.
     """
-    source: str = "self-registry"
-    data_confidence: float = 1.0
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    degree_program: Optional[str] = None
-    primary_specialization: Optional[str] = None
     subject_specializations: Optional[List[str]] = Field(default_factory=list)
     subjects_currently_teaching: Optional[List[str]] = Field(default_factory=list)
     grade_levels_taught: Optional[List[str]] = Field(default_factory=list)
@@ -339,11 +333,6 @@ class TeacherCreate(TeacherBase):
     unapplied_modules: Optional[List[str]] = Field(default_factory=list)
     trainings_attended: Optional[List[str]] = Field(default_factory=list)
     preferred_relocation_regions: Optional[List[str]] = Field(default_factory=list)
-    province: Optional[str] = None    # ← new
-    city: Optional[str] = None        # ← new
-    student_count: Optional[int] = None # ← new
-    preferred_relocation_type: Optional[str] = None
-    last_training_year: Optional[int] = None
 
 
 class TeacherRead(TeacherBase):
