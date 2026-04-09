@@ -57,16 +57,23 @@ def on_startup():
     init_db()
 
     # Seed database if empty (for first deploy)
-    from sqlmodel import Session, select
-    from app.models.models import Teacher
-    from app.core.database import engine
-    from seed import seed
+    # Wrapped in try-except to prevent app crash if seeding fails
+    try:
+        from sqlmodel import Session, select
+        from app.models.models import Teacher
+        from app.core.database import engine
 
-    with Session(engine) as session:
-        existing = len(session.exec(select(Teacher)).all())
-        if existing == 0:
-            print("No data found. Seeding database...")
-            seed()
+        with Session(engine) as session:
+            existing = len(session.exec(select(Teacher)).all())
+            if existing == 0:
+                print("No data found. Seeding database...")
+                from seed import seed
+                seed()
+    except Exception as e:
+        print(f"Warning: Could not seed database: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue anyway - the app can still run without seeded data
 
 
 # ---------------------------------------------------------------------------
