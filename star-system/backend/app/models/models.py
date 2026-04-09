@@ -314,25 +314,44 @@ class Teacher(TeacherBase, table=True):
     Represents a science or mathematics teacher in the STAR program database.
     Each teacher can have multiple training records (one-to-many relationship).
     """
-    id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
+    id: str = Field(default_factory=gen_uuid, primary_key=True)
     trainings: List["TrainingRecord"] = Relationship(back_populates="teacher")
 
 
-class TeacherCreate(TeacherBase):
+class TeacherCreate(SQLModel):
     """
     Schema for creating a new teacher via API.
 
-    Extends TeacherBase with list fields that will be converted to JSON
-    strings before database storage. This allows the frontend to send
-    arrays directly without worrying about JSON serialization.
+    Uses list fields that will be converted to JSON strings before
+    database storage. This allows the frontend to send arrays directly.
     """
-    subject_specializations: Optional[List[str]] = Field(default_factory=list)
-    subjects_currently_teaching: Optional[List[str]] = Field(default_factory=list)
-    grade_levels_taught: Optional[List[str]] = Field(default_factory=list)
-    low_confidence_subjects: Optional[List[str]] = Field(default_factory=list)
-    unapplied_modules: Optional[List[str]] = Field(default_factory=list)
-    trainings_attended: Optional[List[str]] = Field(default_factory=list)
-    preferred_relocation_regions: Optional[List[str]] = Field(default_factory=list)
+    full_name: str
+    region: str
+    province: Optional[str] = None
+    city: Optional[str] = None
+    division: Optional[str] = None
+    school_name: Optional[str] = None
+    school_type: Optional[str] = None
+    position: Optional[str] = None
+    years_experience: Optional[int] = None
+    graduation_year: Optional[int] = None
+    highest_qualification: Optional[str] = None
+    degree_program: Optional[str] = None
+    primary_specialization: Optional[str] = None
+    subject_specializations: List[str] = Field(default_factory=list)
+    subjects_currently_teaching: List[str] = Field(default_factory=list)
+    grade_levels_taught: List[str] = Field(default_factory=list)
+    low_confidence_subjects: List[str] = Field(default_factory=list)
+    unapplied_modules: List[str] = Field(default_factory=list)
+    trainings_attended: List[str] = Field(default_factory=list)
+    preferred_relocation_regions: List[str] = Field(default_factory=list)
+    distance_to_training: Optional[str] = None
+    student_count: Optional[int] = None
+    preferred_format: Optional[str] = None
+    preferred_relocation_type: Optional[str] = None
+    last_training_year: Optional[int] = None
+    source: str = "self-registry"
+    data_confidence: float = 1.0
 
 
 class TeacherRead(TeacherBase):
@@ -375,7 +394,7 @@ class TrainingRecord(TrainingRecordBase, table=True):
     Represents a single STAR module completion for a teacher.
     Multiple training records can belong to one teacher.
     """
-    id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
+    id: str = Field(default_factory=gen_uuid, primary_key=True)
     teacher_id: Optional[str] = Field(default=None, foreign_key="teacher.id")
     teacher: Optional[Teacher] = Relationship(back_populates="trainings")
 
@@ -399,7 +418,7 @@ class ImportLog(SQLModel, table=True):
     Every bulk import (SF7 or training log) creates a record here
     for tracking purposes and troubleshooting.
     """
-    id: Optional[str] = Field(default_factory=gen_uuid, primary_key=True)
+    id: str = Field(default_factory=gen_uuid, primary_key=True)
     filename: str                    # Original file name
     source_type: str                 # "sf7" or "star-log"
     rows_parsed: int = 0             # Number of rows read from file
