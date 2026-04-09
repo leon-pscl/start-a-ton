@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { sendChat, getSummary, getRegions, getSchools } from '../../lib/api'
+import { sendChat, getSummary, getRegions, getSchools, getSubjectShortage } from '../../lib/api'
 
 /**
  * Simple markdown renderer for chat messages.
@@ -100,8 +100,8 @@ export default function ChatWidget() {
   // Fetch all data when chat opens
   useEffect(() => {
     if (isOpen && !dataContext) {
-      Promise.all([getSummary(), getRegions(), getSchools()])
-        .then(([summary, regions, schools]) => {
+      Promise.all([getSummary(), getRegions(), getSchools(), getSubjectShortage()])
+        .then(([summary, regions, schools, subjectShortage]) => {
           setDataContext({
             summary,
             regions: regions.map(r => ({
@@ -119,7 +119,8 @@ export default function ChatWidget() {
               total_teachers: s.total_teachers,
               training_coverage_pct: s.training_coverage_pct,
               priority_level: s.priority_level
-            }))
+            })),
+            subject_shortage: subjectShortage.matrix || subjectShortage
           })
         })
         .catch(() => setDataContext({}))

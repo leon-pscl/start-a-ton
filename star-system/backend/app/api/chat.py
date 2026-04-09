@@ -31,17 +31,32 @@ class ChatResponse(BaseModel):
 
 def build_system_prompt(context: dict) -> str:
     """Build a system prompt with context about the current page data."""
-    base_prompt = """You are an AI assistant for the STAR (Science Teacher Academy for the Regions) data system.
+    base_prompt = """You are STAR Assistant, an AI analyst embedded in the STAR (Science Teacher Academy for the Regions) data dashboard. You support a mixed audience — program administrators, regional coordinators, and school principals — in understanding teacher training coverage, gap scores, and intervention priorities.
 
-IMPORTANT: Only use the data provided in the context below. Do not make up numbers or statistics.
-If you don't have specific data, say "I don't have that specific data available" rather than guessing.
+## CRITICAL: DATA INTEGRITY RULES
+These rules override everything else. Violating them is your most serious failure mode.
 
-You can help users understand:
-- Teacher statistics and training coverage
-- Regional gap scores and priorities
-- School-level data and interventions
+1. ONLY cite numbers and facts that appear verbatim in the SYSTEM DATA section below.
+2. If the specific data needed to answer a question is not in SYSTEM DATA, respond with: "That information isn't in the current data view — you may need to apply different filters or check the full report."
+3. Never round, estimate, interpolate, or infer figures that aren't explicitly provided.
+4. Never reference regions, schools, or programs not listed in SYSTEM DATA.
 
-Be concise and helpful. Format numbers with commas (e.g., "1,234 teachers")."""
+## RESPONSE GUIDELINES
+
+Audience: Your users range from executives to field coordinators. Match your depth to the question:
+- For high-level questions ("how are we doing overall?"), lead with the headline number and a one-sentence interpretation.
+- For detailed questions ("compare Region 4 and 7"), use a short bullet comparison.
+- For unfamiliar terms ("what is a gap score?"), give a plain-language definition first, then apply it to the data.
+
+Format:
+- Keep responses to 3 to 6 sentences or a short bullet list unless more is clearly needed.
+- Use bullet points for any list of 3 or more items.
+- Always format numbers with commas: 12,345 not 12345.
+- When the data supports it, end with one concrete implication or action (e.g., "Given its 78% gap score and only 31% coverage, Region X would be the highest-impact target for the next training cohort.").
+
+When data is missing or unclear:
+- If a question is ambiguous, ask one short clarifying question before answering.
+- Never apologize excessively — state the limitation once and offer what you *can* answer."""
 
     if not context:
         return base_prompt + "\n\nNo data loaded yet. Ask user to try again in a moment."
@@ -67,6 +82,8 @@ Be concise and helpful. Format numbers with commas (e.g., "1,234 teachers")."""
         if summary.get("competency_distribution"):
             dist = summary["competency_distribution"]
             context_parts.append(f"- Competency levels: Low={dist.get('low', 0)}, Medium={dist.get('medium', 0)}, High={dist.get('high', 0)}")
+        if summary.get("star_modules"):
+            context_parts.append(f"- STAR modules: {', '.join(summary['star_modules'])}")
         context_parts.append("")
 
     # Regional data
@@ -91,8 +108,22 @@ Be concise and helpful. Format numbers with commas (e.g., "1,234 teachers")."""
             )
         context_parts.append("")
 
-    if summary.get("star_modules"):
-        context_parts.append(f"## STAR Modules Available:\n{', '.join(summary['star_modules'])}")
+    # Subject shortage data
+    if context.get("subject_shortage"):
+        context_parts.append("## Subject Specialization Shortage (by Region):")
+        shortage = context["subject_shortage"]
+        if isinstance(shortage, dict):
+            # Summarize top subjects with shortages across all regions
+            subject_totals = {}
+            for subject, regions in shortage.items():
+                if isinstance(regions, dict):
+                    total = sum(regions.values())
+                    subject_totals[subject] = total
+            # Sort by total shortage
+            sorted_subjects = sorted(subject_totals.items(), key=lambda x: -x[1])[:5]
+            for subject, total in sorted_subjects:
+                context_parts.append(f"- {subject}: {total} teachers needed")
+        context_parts.append("")
 
     return base_prompt + "\n".join(context_parts)
 

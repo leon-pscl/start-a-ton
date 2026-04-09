@@ -71,9 +71,9 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.cell(0, 10, '1. National Overview', ln=True)
     pdf.set_font('helvetica', '', 10)
 
-    total_teachers = sum(r["total_teachers"] for r in regions_analysis)
-    high_priority = sum(1 for r in regions_analysis if r["gap_level"] == "high")
-    avg_wpi = sum(r["gap_score"] for r in regions_analysis) / len(regions_analysis) if regions_analysis else 0
+    total_teachers = sum(r.get("total_teachers", 0) for r in regions_analysis)
+    high_priority = sum(1 for r in regions_analysis if r.get("gap_level") == "high")
+    avg_wpi = sum(r.get("gap_score", 0) for r in regions_analysis) / len(regions_analysis) if regions_analysis else 0
 
     summary_text = (
         f"The current analysis covers {len(regions_analysis)} regions and a total of {total_teachers} teachers. "
@@ -86,7 +86,13 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     # 2. WPI Visualization
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '2. Priority Visualization', ln=True)
-    chart_buf = create_wpi_chart(regions_analysis)
+
+    # Create chart with safe data
+    safe_regions = [
+        {"region": r.get("region", "Unknown"), "gap_score": r.get("gap_score", 0)}
+        for r in regions_analysis
+    ]
+    chart_buf = create_wpi_chart(safe_regions)
 
     # Write chart to temp file
     tmp_chart = os.path.join(temp_dir, "tmp_wpi_chart.png")
@@ -102,12 +108,12 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '3. Critical Interventions by Region', ln=True)
 
-    top_5 = sorted(regions_analysis, key=lambda x: -x["impact_score"])[:5]
+    top_5 = sorted(regions_analysis, key=lambda x: -x.get("impact_score", 0))[:5]
 
     for r in top_5:
         pdf.set_font('helvetica', 'B', 11)
         pdf.set_fill_color(240, 240, 240)
-        pdf.cell(0, 10, f'REGION: {r["region"]} (WPI: {r["gap_score"]})', ln=True, fill=True)
+        pdf.cell(0, 10, f'REGION: {r.get("region", "Unknown")} (WPI: {r.get("gap_score", 0):.2f})', ln=True, fill=True)
 
         pdf.set_font('helvetica', 'B', 10)
         pdf.cell(30, 8, 'Metric', border=1)
@@ -115,15 +121,21 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
         pdf.cell(0, 8, 'Status', border=1, ln=True)
 
         pdf.set_font('helvetica', '', 9)
-        for name, score in r["components"].items():
-            status = "CRITICAL" if score > 0.6 else "STABLE"
-            pdf.cell(30, 7, name.replace("_score", "").title(), border=1)
-            pdf.cell(30, 7, f"{score:.2f}", border=1)
-            pdf.cell(0, 7, status, border=1, ln=True)
+        components = r.get("components", {})
+        if components:
+            for name, score in components.items():
+                status = "CRITICAL" if score > 0.6 else "STABLE"
+                pdf.cell(30, 7, name.replace("_score", "").title(), border=1)
+                pdf.cell(30, 7, f"{score:.2f}", border=1)
+                pdf.cell(0, 7, status, border=1, ln=True)
+        else:
+            pdf.cell(0, 7, "No component data available", border=1, ln=True)
 
         pdf.ln(2)
         pdf.set_font('helvetica', 'I', 10)
-        pdf.multi_cell(0, 8, f"Impact-Weighted Recommendation: {r['recommendations'][0]}")
+        recommendations = r.get("recommendations", [])
+        rec_text = recommendations[0] if recommendations else "No specific recommendations available."
+        pdf.multi_cell(0, 8, f"Impact-Weighted Recommendation: {rec_text}")
         pdf.ln(5)
 
     # 4. Global Policy Recommendations
