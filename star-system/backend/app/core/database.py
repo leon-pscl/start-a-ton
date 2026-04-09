@@ -15,6 +15,7 @@ from typing import Generator
 from pathlib import Path
 import os
 from sqlalchemy import text, inspect
+from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
 # Database Connection Configuration
@@ -22,6 +23,10 @@ from sqlalchemy import text, inspect
 
 # Determine the base directory (project root) for database file location
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Load .env from backend root so DATABASE_URL can be configured without
+# requiring manual export in every terminal session.
+load_dotenv(BASE_DIR / ".env")
 
 # Database URL configuration with SQLite as the default
 # Can be overridden with DATABASE_URL environment variable for production
