@@ -9,6 +9,7 @@ This module generates a stakeholder-ready PDF report containing:
 """
 
 import os
+import tempfile
 from fpdf import FPDF
 import matplotlib
 matplotlib.use("Agg", force=True)
@@ -56,7 +57,11 @@ def create_wpi_chart(regions: List[Dict[str, Any]]) -> io.BytesIO:
 def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str = "star_executive_summary.pdf") -> str:
     """
     Generates a full PDF report.
+    Returns path to the generated PDF file.
     """
+    # Use temp directory for all file operations (works on Render)
+    temp_dir = tempfile.gettempdir()
+
     pdf = STARReport()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -65,7 +70,7 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '1. National Overview', ln=True)
     pdf.set_font('helvetica', '', 10)
-    
+
     total_teachers = sum(r["total_teachers"] for r in regions_analysis)
     high_priority = sum(1 for r in regions_analysis if r["gap_level"] == "high")
     avg_wpi = sum(r["gap_score"] for r in regions_analysis) / len(regions_analysis) if regions_analysis else 0
@@ -82,11 +87,12 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '2. Priority Visualization', ln=True)
     chart_buf = create_wpi_chart(regions_analysis)
-    # Temporary file for fpdf2 to read (or use a helper)
-    tmp_chart = "tmp_wpi_chart.png"
+
+    # Write chart to temp file
+    tmp_chart = os.path.join(temp_dir, "tmp_wpi_chart.png")
     with open(tmp_chart, "wb") as f:
         f.write(chart_buf.getbuffer())
-    
+
     pdf.image(tmp_chart, x=15, w=180)
     pdf.ln(5)
     os.remove(tmp_chart)
@@ -95,26 +101,26 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.add_page()
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '3. Critical Interventions by Region', ln=True)
-    
+
     top_5 = sorted(regions_analysis, key=lambda x: -x["impact_score"])[:5]
-    
+
     for r in top_5:
         pdf.set_font('helvetica', 'B', 11)
         pdf.set_fill_color(240, 240, 240)
         pdf.cell(0, 10, f'REGION: {r["region"]} (WPI: {r["gap_score"]})', ln=True, fill=True)
-        
+
         pdf.set_font('helvetica', 'B', 10)
         pdf.cell(30, 8, 'Metric', border=1)
         pdf.cell(30, 8, 'Score', border=1)
         pdf.cell(0, 8, 'Status', border=1, ln=True)
-        
+
         pdf.set_font('helvetica', '', 9)
         for name, score in r["components"].items():
             status = "CRITICAL" if score > 0.6 else "STABLE"
             pdf.cell(30, 7, name.replace("_score", "").title(), border=1)
             pdf.cell(30, 7, f"{score:.2f}", border=1)
             pdf.cell(0, 7, status, border=1, ln=True)
-            
+
         pdf.ln(2)
         pdf.set_font('helvetica', 'I', 10)
         pdf.multi_cell(0, 8, f"Impact-Weighted Recommendation: {r['recommendations'][0]}")
@@ -124,7 +130,7 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '4. Strategic Recommendations', ln=True)
     pdf.set_font('helvetica', '', 10)
-    
+
     policy_recs = [
         "Digital Transformation: Shift remote regions (High Distance Score) to asynchronous blended modules.",
         "Retention & Recency: Mandatory refresher cycles every 3 years for regions with Recency Score > 0.4.",
@@ -134,12 +140,13 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     for prec in policy_recs:
         # Starting X for the bullet
         current_x = pdf.get_x()
-        pdf.cell(5, 10, "-", ln=0) 
+        pdf.cell(5, 10, "-", ln=0)
         # Calculate remaining width manually to be safe
         remaining_width = pdf.w - pdf.r_margin - pdf.get_x()
         pdf.multi_cell(remaining_width, 10, prec)
         pdf.ln(2)
 
-    output_path = os.path.join(os.getcwd(), filename)
+    # Output to temp directory
+    output_path = os.path.join(temp_dir, filename)
     pdf.output(output_path)
     return output_path
