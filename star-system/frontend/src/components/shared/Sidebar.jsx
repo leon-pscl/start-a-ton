@@ -29,6 +29,11 @@ import clsx from 'clsx'
 const NAV = [
   { to: '/dashboard', label: 'Overview',       icon: GridIcon },
   { to: '/regions',   label: 'Regional gaps',  icon: MapIcon },
+  { to: '/divisions', label: 'Division offices', icon: OfficeIcon },
+  { to: '/schools',   label: 'School priorities', icon: SchoolIcon },
+  { to: '/school-teacher-management', label: 'School teacher management', icon: ClipboardUsersIcon },
+  { to: '/regional-insights', label: 'Regional insights', icon: ChartIcon },
+  { to: '/interventions', label: 'Interventions', icon: BoltIcon },
   { to: '/teachers',  label: 'Teachers',       icon: UsersIcon },
   { to: '/import',    label: 'Import data',    icon: UploadIcon },
   { to: '/register',  label: 'Teacher portal', icon: PersonIcon },
@@ -139,6 +144,60 @@ function PersonIcon({ className }) {
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
         d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+    </svg>
+  )
+}
+
+/** School icon - used for school priorities */
+function SchoolIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M3 10l9-5 9 5M5 10v8m14-8v8M4 18h16M9 10v8m6-8v8" />
+    </svg>
+  )
+}
+
+/** Chart icon - used for regional insights */
+function ChartIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M4 19h16M7 15l3-3 3 2 4-5" />
+      <circle cx="7" cy="15" r="1" />
+      <circle cx="10" cy="12" r="1" />
+      <circle cx="13" cy="14" r="1" />
+      <circle cx="17" cy="9" r="1" />
+    </svg>
+  )
+}
+
+/** Bolt icon - used for intervention planning */
+function BoltIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" />
+    </svg>
+  )
+}
+
+/** Office icon - used for School Division Office view */
+function OfficeIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M4 21h16M6 21V7l6-3 6 3v14M9 10h.01M9 13h.01M9 16h.01M15 10h.01M15 13h.01M15 16h.01" />
+    </svg>
+  )
+}
+
+/** Clipboard users icon - used for school teacher management */
+function ClipboardUsersIcon({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+        d="M9 3h6a1 1 0 011 1v1h2a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h2V4a1 1 0 011-1zM9 5h6M8 13a2 2 0 114 0 2 2 0 01-4 0zm7-1a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm-8 6a4 4 0 018 0m2.5 0a3 3 0 00-2-2.83" />
     </svg>
   )
 }

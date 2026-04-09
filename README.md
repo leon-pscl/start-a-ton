@@ -7,9 +7,19 @@ So far, this is built to be run locally.
 Open a terminal and run the following line by line:
 ```bash
 cd star-system/backend
-python -m venv start-a-ton
-start-a-ton\Scripts\activate
-pip install -r requirements.txt
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+If you are using Command Prompt (`cmd.exe`), use:
+```bash
+.venv\Scripts\activate.bat
+```
+
+If you are using Git Bash, use:
+```bash
+source .venv/Scripts/activate
 ```
 
 to initialize the database, and then fill it with mock data:
@@ -22,6 +32,8 @@ after all that, start the API server:
 uvicorn main:app --reload --port 8000
 ```
 
+If `python -m venv .venv` fails because a broken environment already exists, delete the old `.venv` folder first and run the commands again.
+
 ## Frontend
 
 Open a **new terminal** and run:
@@ -33,4 +45,4 @@ npm run dev
 
 You should be given a local URL after that (e.g. `http://localhost:5173`).
 
-star-system/backend/seed.py creates star.db in the same folder and adds mock data. So if you deleted the mock data and want to try again, just delete star.db at all and start over, I guess.
+`star-system/backend/seed.py` creates `star.db` in the same folder and adds mock data. If you want a fresh database, delete `star.db` and run `python seed.py` again.

@@ -21,6 +21,11 @@ import RegionsPage from './pages/Regions'
 import TeachersPage from './pages/Teachers'
 import ImportPage  from './pages/Import'
 import Register    from './pages/Register'
+import SchoolsPage from './pages/Schools'
+import DivisionsPage from './pages/Divisions'
+import InterventionsPage from './pages/Interventions'
+import RegionalInsightsPage from './pages/RegionalInsights'
+import SchoolTeacherManagementPage from './pages/SchoolTeacherManagement'
 
 // ---------------------------------------------------------------------------
 // Layout Wrapper Component
@@ -57,6 +62,11 @@ export default function App() {
         {/* Protected routes - with sidebar layout */}
         <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
         <Route path="/regions"   element={<Layout><RegionsPage /></Layout>} />
+        <Route path="/schools"   element={<Layout><SchoolsPage /></Layout>} />
+        <Route path="/school-teacher-management" element={<Layout><SchoolTeacherManagementPage /></Layout>} />
+        <Route path="/divisions" element={<Layout><DivisionsPage /></Layout>} />
+        <Route path="/interventions" element={<Layout><InterventionsPage /></Layout>} />
+        <Route path="/regional-insights" element={<Layout><RegionalInsightsPage /></Layout>} />
         <Route path="/teachers"  element={<Layout><TeachersPage /></Layout>} />
         <Route path="/import"    element={<Layout><ImportPage /></Layout>} />
 

@@ -8,8 +8,8 @@
  * messages for the UI to display.
  */
 
-// API base URL - proxies to FastAPI backend through Vite dev server
-const BASE = '/api'
+// API base URL - defaults to Vite proxy; can be overridden via VITE_API_BASE_URL
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 /**
  * Generic request helper for API calls.
@@ -93,6 +93,12 @@ export const getTeachers = (params = {}) => {
  * @param {string} id - Teacher UUID
  */
 export const getTeacher      = (id) => request(`/teachers/${id}`)
+
+/**
+ * Update teacher profile fields such as relocation and training preferences.
+ */
+export const updateTeacher    = (id, payload) =>
+  request(`/teachers/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
 
 /**
  * Register a new teacher from the self-registration portal.
@@ -208,3 +214,25 @@ export const exportPDF = () => {
 export const getProvinces = () => request('/analytics/provinces')
 export const getCities    = () => request('/analytics/cities')
 export const getSubjectShortage = () => request('/analytics/subject-shortage')
+export const getSchools = (filters = '') => {
+  if (typeof filters === 'string') {
+    const qs = filters ? `?region=${encodeURIComponent(filters)}` : ''
+    return request(`/analytics/schools${qs}`)
+  }
+
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(filters || {}).filter(([, v]) => v !== '' && v != null))
+  ).toString()
+  return request(`/analytics/schools${qs ? `?${qs}` : ''}`)
+}
+export const getRegionalInsights = () => request('/analytics/regional-insights')
+export const getDivisions = (params = {}) => {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).filter(([, v]) => v !== '' && v != null))
+  ).toString()
+  return request(`/analytics/divisions${qs ? `?${qs}` : ''}`)
+}
+export const simulateTraining = (training_count = 10, uplift = 12) =>
+  request(`/analytics/simulate?training_count=${training_count}&uplift=${uplift}`, { method: 'POST' })
+export const getReassignmentSuggestions = (limit = 15) =>
+  request(`/analytics/reassignments?limit=${limit}`)

@@ -286,7 +286,11 @@ class TeacherBase(SQLModel):
     school_type: Optional[str] = None
     position: Optional[str] = None
     years_experience: Optional[int] = None
+    graduation_year: Optional[int] = None
+    graduation_year: Optional[int] = None
     highest_qualification: Optional[str] = None
+    degree_program: Optional[str] = None
+    primary_specialization: Optional[str] = None
     subject_specializations: Optional[str] = None
     subjects_currently_teaching: Optional[str] = None
     grade_levels_taught: Optional[str] = None
@@ -295,6 +299,9 @@ class TeacherBase(SQLModel):
     distance_to_training: Optional[str] = None
     student_count: Optional[int] = None               # ← new
     preferred_format: Optional[str] = None
+    preferred_relocation_regions: Optional[str] = None
+    preferred_relocation_type: Optional[str] = None
+    last_training_year: Optional[int] = None
     source: str = "self-registry"
     data_confidence: float = 1.0
     created_at: Optional[datetime] = None
@@ -324,15 +331,20 @@ class TeacherCreate(TeacherBase):
     data_confidence: float = 1.0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    subject_specializations: Optional[List[str]] = []
-    subjects_currently_teaching: Optional[List[str]] = []
-    grade_levels_taught: Optional[List[str]] = []
-    low_confidence_subjects: Optional[List[str]] = []
-    unapplied_modules: Optional[List[str]] = []
-    trainings_attended: Optional[List[str]] = []
+    degree_program: Optional[str] = None
+    primary_specialization: Optional[str] = None
+    subject_specializations: Optional[List[str]] = Field(default_factory=list)
+    subjects_currently_teaching: Optional[List[str]] = Field(default_factory=list)
+    grade_levels_taught: Optional[List[str]] = Field(default_factory=list)
+    low_confidence_subjects: Optional[List[str]] = Field(default_factory=list)
+    unapplied_modules: Optional[List[str]] = Field(default_factory=list)
+    trainings_attended: Optional[List[str]] = Field(default_factory=list)
+    preferred_relocation_regions: Optional[List[str]] = Field(default_factory=list)
     province: Optional[str] = None    # ← new
     city: Optional[str] = None        # ← new
     student_count: Optional[int] = None # ← new
+    preferred_relocation_type: Optional[str] = None
+    last_training_year: Optional[int] = None
 
 
 class TeacherRead(TeacherBase):

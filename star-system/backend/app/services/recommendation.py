@@ -29,39 +29,45 @@ def generate_recommendations(region_analysis: Dict[str, Any]) -> List[str]:
         List[str]: Natural language recommendation strings
     """
     recs = []
-    region = region_analysis["region"]
-    comps = region_analysis["components"]
+    region = region_analysis.get("region", "Unknown Region")
+    comps = region_analysis.get("components", {})
 
     # 1. Coverage Recommendation
-    if comps["coverage_score"] > THRESHOLDS["coverage"]:
+    coverage_score = comps.get("coverage_score", 0.0)
+    mismatch_score = comps.get("mismatch_score", 0.0)
+    workload_score = comps.get("workload_score", 0.0)
+    recency_score = comps.get("recency_score", 0.0)
+    distance_score = comps.get("distance_score", 0.0)
+
+    if coverage_score > THRESHOLDS["coverage"]:
         recs.append(
-            f"Critical Coverage Gap: Over {int(comps['coverage_score']*100)}% of teachers in {region} have NO STAR training. "
+            f"Critical Coverage Gap: Over {int(coverage_score*100)}% of teachers in {region} have NO STAR training. "
             f"Prioritize basic capacity-building modules immediately."
         )
 
     # 2. Mismatch Recommendation (Science/Math focus)
-    if comps["mismatch_score"] > THRESHOLDS["mismatch"]:
+    if mismatch_score > THRESHOLDS["mismatch"]:
         recs.append(
-            f"Specialization Mismatch: High out-of-field teaching detected ({int(comps['mismatch_score']*100)}%). "
+            f"Specialization Mismatch: High out-of-field teaching detected ({int(mismatch_score*100)}%). "
             f"Deploy 'Interdisciplinary Contextualization' and subject-specific content modules."
         )
 
     # 3. Workload Recommendation (Resource allocation)
-    if comps["workload_score"] > THRESHOLDS["workload"]:
+    if workload_score > THRESHOLDS["workload"]:
         recs.append(
-            f"High Instructional Burden: Teacher-to-student ratio is elevated ({region_analysis['avg_student_ratio']}:1). "
+            f"High Instructional Burden: Teacher-to-student ratio is elevated ({region_analysis.get('avg_student_ratio', 0)}:1). "
             f"Consider 'Blended Learning Assessment' modules to optimize teacher time."
         )
 
     # 4. Recency Recommendation (Refresher)
-    if comps["recency_score"] > THRESHOLDS["recency"]:
+    if recency_score > THRESHOLDS["recency"]:
         recs.append(
             f"Skill Stagnation: Significant portion of workforce hasn't been trained in 3+ years. "
             f"Schedule refresher workshops for 'Inquiry-based Science' and 'Modern Math Strategies'."
         )
 
     # 5. Distance Recommendation (Access mode)
-    if comps["distance_score"] > THRESHOLDS["distance"]:
+    if distance_score > THRESHOLDS["distance"]:
         recs.append(
             f"Accessibility Barriers: Remote schools detected. Shift intervention to 'Online' or 'Blended' format "
             f"to bypass travel constraints."
@@ -69,7 +75,7 @@ def generate_recommendations(region_analysis: Dict[str, Any]) -> List[str]:
 
     # Default if no critical thresholds met
     if not recs:
-        if region_analysis["gap_score"] < 0.3:
+        if region_analysis.get("gap_score", 0.0) < 0.3:
             recs.append(f"{region} is performing well. Maintain current engagement through advanced 'Cascade' programs.")
         else:
             recs.append(f"Monitor {region} for emerging gaps in specialization and workload balance.")

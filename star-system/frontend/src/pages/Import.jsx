@@ -42,10 +42,12 @@ const EMPTY_RECORD = {
   full_name: '', region: '', province: '', city: '',
   division: '', school_name: '', school_type: 'public',
   position: '', years_experience: '', highest_qualification: '',
+  degree_program: '', primary_specialization: '',
   subject_specializations: [], subjects_currently_teaching: [], grade_levels_taught: [],
   trainings_attended: [],
   low_confidence_subjects: [], unapplied_modules: [],
   distance_to_training: '', preferred_format: '',
+  preferred_relocation_regions: [], preferred_relocation_type: '', last_training_year: '',
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +69,7 @@ export default function ImportPage() {
   const [records, setRecords] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [editedRecords, setEditedRecords] = useState([])
+  const [previewMeta, setPreviewMeta] = useState(null)
 
   // Confirmation state
   const [result, setResult] = useState(null)
@@ -88,12 +91,14 @@ export default function ImportPage() {
     if (!file) return
     setLoading(true)
     setError('')
+    setPreviewMeta(null)
     try {
       const res = await previewFile(file, sourceType)
       if (!res.records || res.records.length === 0) {
         setError('No records found in file. Please check the file format.')
         return
       }
+      setPreviewMeta(res.validation_summary || null)
       setRecords(res.records)
       setEditedRecords(res.records.map(r => ({ ...EMPTY_RECORD, ...r })))
       setCurrentIndex(0)
@@ -173,6 +178,7 @@ export default function ImportPage() {
     setEditedRecords([])
     setCurrentIndex(0)
     setResult(null)
+    setPreviewMeta(null)
     setError('')
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -242,6 +248,19 @@ export default function ImportPage() {
               />
             </div>
           </div>
+          {previewMeta && (
+            <div className="max-w-2xl mx-auto px-4 pb-3 grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-red-50 text-red-700 rounded-lg px-3 py-2 border border-red-100">
+                {previewMeta.records_with_issues} records with issues
+              </div>
+              <div className="bg-amber-50 text-amber-700 rounded-lg px-3 py-2 border border-amber-100">
+                {previewMeta.out_of_field_tags} out-of-field tags
+              </div>
+              <div className="bg-slate-50 text-slate-600 rounded-lg px-3 py-2 border border-slate-100">
+                {previewMeta.missing_training_data} missing training records
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Form content */}
@@ -255,6 +274,14 @@ export default function ImportPage() {
                   {record.position && ` • ${record.position}`}
                   {record.school_name && ` • ${record.school_name}`}
                 </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(record.validation_issues || []).map(issue => (
+                    <span key={issue} className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{issue}</span>
+                  ))}
+                  {(record.auto_tags || []).map(tag => (
+                    <span key={tag} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{tag}</span>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -354,6 +381,22 @@ export default function ImportPage() {
                   placeholder="Select qualification"
                 />
               </Field>
+              <Field label="Degree program">
+                <input
+                  className="input"
+                  placeholder="e.g. BSEd Mathematics"
+                  value={record.degree_program || ''}
+                  onChange={e => setField('degree_program', e.target.value)}
+                />
+              </Field>
+              <Field label="Primary specialization">
+                <Select
+                  value={record.primary_specialization || ''}
+                  onChange={v => setField('primary_specialization', v)}
+                  options={SUBJECTS}
+                  placeholder="Select specialization"
+                />
+              </Field>
               <CheckboxGroup
                 label="Subject specializations"
                 options={SUBJECTS}
@@ -426,6 +469,37 @@ export default function ImportPage() {
                   />
                 </Field>
               </div>
+              <Field label="Preferred relocation regions">
+                <CheckboxGroup
+                  label="Select relocation targets"
+                  options={REGIONS}
+                  selected={record.preferred_relocation_regions || []}
+                  onChange={v => setField('preferred_relocation_regions', v)}
+                />
+              </Field>
+              <Field label="Preferred relocation type">
+                <Select
+                  value={record.preferred_relocation_type || ''}
+                  onChange={v => setField('preferred_relocation_type', v)}
+                  options={[
+                    { value: 'same region', label: 'Same region' },
+                    { value: 'nearby', label: 'Nearby regions' },
+                    { value: 'nationwide', label: 'Nationwide' },
+                  ]}
+                  placeholder="Select relocation type"
+                />
+              </Field>
+              <Field label="Last training year">
+                <input
+                  type="number"
+                  min="2015"
+                  max="2035"
+                  className="input"
+                  placeholder="e.g. 2024"
+                  value={record.last_training_year || ''}
+                  onChange={e => setField('last_training_year', e.target.value ? parseInt(e.target.value) : null)}
+                />
+              </Field>
             </Section>
 
             {/* Navigation */}

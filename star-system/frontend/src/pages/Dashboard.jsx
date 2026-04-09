@@ -16,8 +16,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { getSummary, getRegions, exportCSV, exportPDF } from '../lib/api'
-import { GAP_COLORS, IMPACT_COLORS, pct } from '../lib/constants'
-import { StatCard, GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
+import { GAP_COLORS } from '../lib/constants'
+import { StatCard, GapBar, Spinner, PageHeader } from '../components/shared'
 import PhilippinesMap from '../components/shared/PhilippinesMap'
 
 // ---------------------------------------------------------------------------
@@ -29,21 +29,34 @@ export default function Dashboard() {
   const [summary, setSummary] = useState(null)    // Summary statistics
   const [regions, setRegions] = useState([])       // Regional gap analysis
   const [loading, setLoading] = useState(true)     // Loading state
+  const [error, setError] = useState('')
   const navigate = useNavigate()
 
   // Fetch data on mount
   useEffect(() => {
     Promise.all([getSummary(), getRegions()])
       .then(([s, r]) => { setSummary(s); setRegions(r) })
+      .catch((e) => setError(e?.message || 'Failed to load dashboard data'))
       .finally(() => setLoading(false))
   }, [])
 
   // Show loading spinner while fetching
   if (loading) return <Spinner />
+  if (error || !summary) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <PageHeader title="System overview" subtitle="Unable to load analytics right now" />
+        <div className="card border-l-4 border-red-500">
+          <p className="text-sm text-slate-700">{error || 'Dashboard data is unavailable.'}</p>
+          <p className="text-xs text-slate-500 mt-2">Check that backend is running on port 8000, then refresh.</p>
+        </div>
+      </div>
+    )
+  }
 
   // Prepare data for display
   // Rank by Impact Score (Impact = Gap * Students Affected)
-  const topImpact = [...regions].sort((a, b) => b.impact_score - a.impact_score).slice(0, 5)
+  const interventions = summary.high_impact_interventions ?? []
   const chartData = regions
     .sort((a, b) => b.gap_score - a.gap_score)  // Sort by gap score (highest first)
     .slice(0, 12)                                // Show top 12
@@ -96,6 +109,33 @@ export default function Dashboard() {
           label="Training records"
           value={summary.total_training_records.toLocaleString()}
           sub="STAR module completions"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard
+          label="Competency low"
+          value={summary.competency_distribution?.low ?? 0}
+          sub="Teachers needing intervention"
+          accent="text-red-600"
+        />
+        <StatCard
+          label="Competency medium"
+          value={summary.competency_distribution?.medium ?? 0}
+          sub="Teachers on watch"
+          accent="text-amber-600"
+        />
+        <StatCard
+          label="Competency high"
+          value={summary.competency_distribution?.high ?? 0}
+          sub="Ready for advanced modules"
+          accent="text-green-600"
+        />
+        <StatCard
+          label="At-risk schools"
+          value={summary.at_risk_schools ?? 0}
+          sub={`Out-of-field ${summary.out_of_field_pct ?? 0}%`}
+          accent="text-indigo-700"
         />
       </div>
 
@@ -158,30 +198,48 @@ export default function Dashboard() {
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             Priority by potential student reach
           </p>
-          {topImpact.length === 0 ? (
+          {interventions.length === 0 ? (
             <p className="text-sm text-slate-400 py-8 text-center">No impact data available</p>
           ) : (
             <div className="flex flex-col gap-4">
-              {topImpact.map(r => (
-                <div key={r.region} className="group cursor-pointer" onClick={() => navigate(`/regions?selected=${encodeURIComponent(r.region)}`)}>
+              {interventions.slice(0, 5).map((item, index) => (
+                <div
+                  key={`${item.school_name}-${index}`}
+                  className="group cursor-pointer"
+                  onClick={() => navigate(`/regions?selected=${encodeURIComponent(item.region)}`)}
+                >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-slate-700">{r.region}</span>
+                    <span className="text-sm font-bold text-slate-700">{item.school_name}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded">
-                        Impact: {r.impact_score.toLocaleString()}
+                        Impact: {item.priority_score?.toLocaleString?.() ?? item.priority_score}
                       </span>
-                      <GapBadge level={r.gap_level} />
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        item.priority_level === 'Critical'
+                          ? 'bg-red-100 text-red-700'
+                          : item.priority_level === 'Moderate'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {item.priority_level}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-[11px] text-slate-500">
-                      Target: <span className="font-semibold">{r.total_teachers}</span> teachers &middot; <span className="font-semibold">{r.total_students?.toLocaleString()}</span> students
+                      {item.region} · <span className="font-semibold">{item.total_teachers}</span> teachers · <span className="font-semibold">{item.training_coverage_pct}%</span> coverage
                     </span>
                   </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    {item.reason}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    {item.recommendations?.[0]}
+                  </p>
                   <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-700" 
-                      style={{ width: `${Math.min(100, (r.impact_score / (topImpact[0].impact_score || 1)) * 100)}%` }}
+                      style={{ width: `${Math.min(100, (item.priority_score / ((interventions[0]?.priority_score) || 1)) * 100)}%` }}
                     />
                   </div>
                 </div>

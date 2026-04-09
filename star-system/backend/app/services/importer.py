@@ -30,6 +30,7 @@ from app.models.models import (
     Teacher, TrainingRecord, ImportLog,
     normalize_region, normalize_subject, normalize_city, STAR_MODULES,
 )
+from app.services.intelligence import build_teacher_payload
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +62,16 @@ STAR_LOG_COLUMN_MAP = {
     "year":               ["year", "date", "sy", "school year"],
     "school_name":        ["school", "school name"],
     "division":           ["division", "sdo"],
+}
+
+VALID_SUBJECTS = {
+    "General Science",
+    "Biology",
+    "Chemistry",
+    "Physics",
+    "Earth Science",
+    "Mathematics",
+    "Statistics",
 }
 
 
@@ -203,6 +214,30 @@ def _match_module(raw: str) -> str | None:
     return best if best_score >= 60 else None
 
 
+def _validate_record(record: dict) -> tuple[list[str], list[str]]:
+    """Return validation issues and auto-tags for a preview record."""
+    issues: list[str] = []
+    tags: list[str] = []
+
+    specs = [normalize_subject(s) for s in (record.get("subject_specializations") or []) if s]
+    teaching = [normalize_subject(s) for s in (record.get("subjects_currently_teaching") or []) if s]
+    trainings = [module for module in (record.get("trainings_attended") or []) if module]
+
+    if not specs:
+        issues.append("Specialization missing")
+    if specs and any(subject not in VALID_SUBJECTS for subject in specs):
+        issues.append("Invalid specialization value")
+    if teaching and any(subject not in VALID_SUBJECTS for subject in teaching):
+        issues.append("Invalid subject value")
+
+    if specs and teaching and any(subject not in specs for subject in teaching):
+        tags.append("out-of-field")
+    if not trainings:
+        tags.append("missing-training-data")
+
+    return issues, tags
+
+
 # ---------------------------------------------------------------------------
 # SF7 File Parser (DepEd School Form 7)
 # ---------------------------------------------------------------------------
@@ -311,6 +346,14 @@ def preview_sf7(file_bytes: bytes, filename: str) -> dict:
             if teacher.get("subject"):
                 subjects = [normalize_subject(s.strip()) for s in teacher["subject"].split(",") if s.strip()]
 
+            degree_program = None
+            if teacher.get("degree"):
+                degree_program = str(teacher["degree"]).strip()
+                if teacher.get("major"):
+                    degree_program = f"{degree_program} {str(teacher['major']).strip()}"
+
+            primary_specialization = normalize_subject(teacher.get("major") or (subjects[0] if subjects else "")) if (teacher.get("major") or subjects) else None
+
             # Map degree to highest_qualification
             degree = teacher.get("degree")
             qual = None
@@ -345,7 +388,13 @@ def preview_sf7(file_bytes: bytes, filename: str) -> dict:
                 "division": None,
                 "school_type": "public",
                 "years_experience": None,
+                "degree_program": degree_program,
+                "primary_specialization": primary_specialization,
+                "preferred_relocation_regions": [school_info["region"]] if school_info.get("region") else [],
+                "preferred_relocation_type": "same region",
+                "last_training_year": None,
             }
+            record["validation_issues"], record["auto_tags"] = _validate_record(record)
             records.append(record)
     else:
         # CSV fallback - use generic parser
@@ -385,7 +434,13 @@ def preview_sf7(file_bytes: bytes, filename: str) -> dict:
                 "unapplied_modules": [],
                 "distance_to_training": None,
                 "preferred_format": None,
+                "degree_program": None,
+                "primary_specialization": subjects[0] if subjects else None,
+                "preferred_relocation_regions": [normalize_region(region_raw or "")] if region_raw else [],
+                "preferred_relocation_type": "same region",
+                "last_training_year": None,
             }
+            record["validation_issues"], record["auto_tags"] = _validate_record(record)
             records.append(record)
 
     return {
@@ -395,6 +450,11 @@ def preview_sf7(file_bytes: bytes, filename: str) -> dict:
         "columns_found": columns_found,
         "school_info": columns_found.get("school_name") if not filename.endswith(('.xlsx', '.xls')) else None,
         "records": records,
+        "validation_summary": {
+            "records_with_issues": sum(1 for record in records if record.get("validation_issues")),
+            "out_of_field_tags": sum(1 for record in records if "out-of-field" in record.get("auto_tags", [])),
+            "missing_training_data": sum(1 for record in records if "missing-training-data" in record.get("auto_tags", [])),
+        },
     }
 
 
@@ -461,7 +521,13 @@ def preview_star_log(file_bytes: bytes, filename: str) -> dict:
             "unapplied_modules": [],
             "distance_to_training": None,
             "preferred_format": None,
+            "degree_program": None,
+            "primary_specialization": None,
+            "preferred_relocation_regions": [region_raw] if region_raw else [],
+            "preferred_relocation_type": "same region",
+            "last_training_year": year,
         }
+        record["validation_issues"], record["auto_tags"] = _validate_record(record)
         records.append(record)
 
     return {
@@ -470,6 +536,11 @@ def preview_star_log(file_bytes: bytes, filename: str) -> dict:
         "total_records": len(records),
         "columns_found": columns_found,
         "records": records,
+        "validation_summary": {
+            "records_with_issues": sum(1 for record in records if record.get("validation_issues")),
+            "out_of_field_tags": sum(1 for record in records if "out-of-field" in record.get("auto_tags", [])),
+            "missing_training_data": sum(1 for record in records if "missing-training-data" in record.get("auto_tags", [])),
+        },
     }
 
 
@@ -506,6 +577,7 @@ def confirm_import(records: list[dict], source_type: str, session: Session) -> I
             continue
 
         region = normalize_region(record.get("region") or "")
+        normalized = build_teacher_payload({**record, "region": region, "trainings_attended": record.get("trainings_attended") or []}, region)
 
         # Find existing teacher or create new one
         teacher = _find_existing(name, region, session) or Teacher(created_at=datetime.utcnow())
@@ -513,35 +585,40 @@ def confirm_import(records: list[dict], source_type: str, session: Session) -> I
         # Update teacher fields from record
         teacher.full_name = name
         teacher.region = region
-        teacher.province = record.get("province")
+        teacher.province = normalized.get("province")
         teacher.city = normalize_city(record.get("city")) if record.get("city") else None
-        teacher.division = record.get("division")
-        teacher.school_name = record.get("school_name")
-        teacher.school_type = record.get("school_type") or "public"
-        teacher.position = record.get("position")
-        teacher.years_experience = record.get("years_experience")
-        teacher.highest_qualification = record.get("highest_qualification")
+        teacher.division = normalized.get("division")
+        teacher.school_name = normalized.get("school_name")
+        teacher.school_type = normalized.get("school_type") or "public"
+        teacher.position = normalized.get("position")
+        teacher.years_experience = normalized.get("years_experience")
+        teacher.highest_qualification = normalized.get("highest_qualification")
+        teacher.degree_program = normalized.get("degree_program")
+        teacher.primary_specialization = normalized.get("primary_specialization")
 
         # Handle JSON array fields
-        subjects = record.get("subject_specializations")
+        subjects = normalized.get("subject_specializations")
         teacher.subject_specializations = json.dumps(subjects) if subjects else None
 
-        currently = record.get("subjects_currently_teaching")
+        currently = normalized.get("subjects_currently_teaching")
         teacher.subjects_currently_teaching = json.dumps(currently) if currently else None
 
-        grades = record.get("grade_levels_taught")
+        grades = normalized.get("grade_levels_taught")
         teacher.grade_levels_taught = json.dumps(grades) if grades else None
 
-        low_conf = record.get("low_confidence_subjects")
+        low_conf = normalized.get("low_confidence_subjects")
         teacher.low_confidence_subjects = json.dumps(low_conf) if low_conf else None
 
-        unapplied = record.get("unapplied_modules")
+        unapplied = normalized.get("unapplied_modules")
         teacher.unapplied_modules = json.dumps(unapplied) if unapplied else None
 
-        teacher.distance_to_training = record.get("distance_to_training")
-        teacher.preferred_format = record.get("preferred_format")
+        teacher.distance_to_training = normalized.get("distance_to_training")
+        teacher.preferred_format = normalized.get("preferred_format")
+        teacher.preferred_relocation_regions = json.dumps(normalized.get("preferred_relocation_regions") or [])
+        teacher.preferred_relocation_type = normalized.get("preferred_relocation_type")
+        teacher.last_training_year = normalized.get("last_training_year")
         teacher.source = source_type
-        teacher.data_confidence = 0.85 if source_type == "sf7" else 0.7
+        teacher.data_confidence = 0.7 if (record.get("validation_issues") or record.get("auto_tags")) else (0.85 if source_type == "sf7" else 0.7)
         teacher.updated_at = datetime.utcnow()
 
         session.add(teacher)
@@ -563,12 +640,20 @@ def confirm_import(records: list[dict], source_type: str, session: Session) -> I
                         session.add(TrainingRecord(
                             teacher_id=teacher.id,
                             module_name=module_name,
-                            year=record.get("year"),
+                            year=record.get("year") or normalized.get("last_training_year"),
                             partner_university=record.get("partner_university"),
                             region=region,
                             source="star-log",
                             data_confidence=0.8,
                         ))
+
+        teacher.last_training_year = max(
+            [year for year in [teacher.last_training_year, normalized.get("last_training_year"), record.get("year")] if year is not None],
+            default=None,
+        )
+        session.add(teacher)
+        if record.get("validation_issues") or record.get("auto_tags"):
+            flagged += 1
 
     session.commit()
 

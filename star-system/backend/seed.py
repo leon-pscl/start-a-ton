@@ -17,7 +17,6 @@ Only runs if star.db doesn't exist (doesn't overwrite existing data).
 """
 
 import json
-import os
 import random
 from datetime import datetime, timezone
 
@@ -25,6 +24,7 @@ from sqlmodel import Session, select
 
 from app.core.database import engine, init_db
 from app.models.models import CANONICAL_REGIONS, STAR_MODULES, Teacher, TrainingRecord
+from app.services.intelligence import derive_relocation_type, infer_degree_program, infer_primary_specialization, normalize_region_list
 
 # Set seed for reproducible results
 random.seed(42)
@@ -40,6 +40,15 @@ SUBJECTS = ["General Science", "Biology", "Chemistry", "Physics", "Earth Science
 SCHOOL_TYPES = ["public", "public", "public", "private"]
 DISTANCES = ["<1hr", "<1hr", "1-3hrs", "1-3hrs", "3hrs+"]
 FORMATS = ["face-to-face", "blended", "online"]
+DEGREE_PROGRAMS = [
+    "BSEd Mathematics",
+    "BSEd Biology",
+    "BSEd Chemistry",
+    "BSEd Physics",
+    "BSEd Earth Science",
+    "BSEd General Science",
+    "BSEd Statistics",
+]
 
 FIRST_NAMES = [
     "Maria", "Jose", "Ana", "Juan", "Rosa", "Pedro", "Luz", "Carlos", "Elena", "Ramon",
@@ -49,6 +58,32 @@ LAST_NAMES = [
     "Santos", "Reyes", "Cruz", "Bautista", "Garcia", "Mendoza", "Torres", "Flores",
     "Villanueva", "Aquino", "Ramos", "Dela Cruz", "Gonzales", "Lopez", "Hernandez",
 ]
+
+REGION_SEQUENCE = CANONICAL_REGIONS
+
+
+def nearby_regions(region: str) -> list[str]:
+    """Return a small set of nearby regions for relocation preferences."""
+    if region not in REGION_SEQUENCE:
+        return [region]
+    idx = REGION_SEQUENCE.index(region)
+    candidates = [region]
+    if idx > 0:
+        candidates.append(REGION_SEQUENCE[idx - 1])
+    if idx < len(REGION_SEQUENCE) - 1:
+        candidates.append(REGION_SEQUENCE[idx + 1])
+    return normalize_region_list(candidates)
+
+
+def choose_profile_type(profile_key: str) -> str:
+    """Bias the teacher profile mix by regional gap profile."""
+    if profile_key == "high":
+        weights = [0.45, 0.35, 0.20]
+    elif profile_key == "moderate":
+        weights = [0.55, 0.25, 0.20]
+    else:
+        weights = [0.70, 0.12, 0.18]
+    return random.choices(["aligned", "out_of_field", "experienced_non_specialized"], weights=weights, k=1)[0]
 
 
 # ---------------------------------------------------------------------------
@@ -247,20 +282,43 @@ def make_name() -> str:
 # Main Seed Function
 # ---------------------------------------------------------------------------
 
-def _make_teacher(session, region, province, city, profile):
+def _make_teacher(session, region, province, city, profile_key, profile):
     """Create a single teacher record with randomized attributes."""
-    specs   = random.sample(SUBJECTS, k=random.randint(1, 3))
+    profile_type = choose_profile_type(profile_key)
+    is_far = random.random() < profile["far_pct"]
     low_conf = random.sample(SUBJECTS, k=random.randint(0, 2))
-    is_far      = random.random() < profile["far_pct"]
-    is_mismatch = random.random() < profile["mismatch_pct"]
+    current_year = datetime.now(timezone.utc).year
 
-    # subjects_currently_teaching: if mismatched, teacher teaches at least one
-    # subject OUTSIDE their specialization; otherwise they teach only within spec
-    if is_mismatch:
-        outside = random.sample([s for s in SUBJECTS if s not in specs], k=1)
-        currently_teaching = random.sample(specs, k=random.randint(1, len(specs))) + outside
-    else:
+    if profile_type == "aligned":
+        primary = random.choice(SUBJECTS)
+        specs = [primary] + random.sample([s for s in SUBJECTS if s != primary], k=random.randint(0, 1))
         currently_teaching = random.sample(specs, k=random.randint(1, len(specs)))
+        degree_program = infer_degree_program(specs, primary)
+        last_training_year = random.randint(2022, 2024) if random.random() < profile["trained_pct"] else None
+        experience = random.randint(1, 18)
+    elif profile_type == "out_of_field":
+        primary = random.choice(SUBJECTS)
+        specs = [primary]
+        outside = random.choice([s for s in SUBJECTS if s not in specs])
+        currently_teaching = specs + [outside]
+        degree_program = infer_degree_program(specs, primary)
+        last_training_year = random.randint(2019, 2022) if random.random() < profile["trained_pct"] else None
+        experience = random.randint(2, 22)
+    else:
+        primary = random.choice(["General Science", "Biology", "Chemistry", "Physics", "Earth Science"])
+        specs = [primary, random.choice([s for s in SUBJECTS if s != primary])]
+        currently_teaching = random.sample(specs, k=random.randint(1, len(specs)))
+        degree_program = random.choice([infer_degree_program(specs, primary), "MEd Science Education", "BSEd General Science"])
+        last_training_year = random.randint(2020, 2024) if random.random() < profile["trained_pct"] else None
+        experience = random.randint(15, 30)
+
+    primary_specialization = infer_primary_specialization(degree_program, specs) or primary
+    relocation_regions = nearby_regions(region) if profile_type != "out_of_field" else normalize_region_list([region] + random.sample(REGION_SEQUENCE, k=min(2, len(REGION_SEQUENCE))))
+    relocation_type = derive_relocation_type(relocation_regions, region)
+
+    graduation_year = current_year - experience - random.randint(3, 5)
+    if profile_type == "experienced_non_specialized":
+        graduation_year += random.randint(0, 2)
 
     teacher = Teacher(
         full_name=make_name(),
@@ -271,8 +329,11 @@ def _make_teacher(session, region, province, city, profile):
         school_name=f"{random.choice(['National', 'Integrated', 'Central'])} High School",
         school_type=random.choice(SCHOOL_TYPES),
         position=random.choice(POSITIONS),
-        years_experience=random.randint(1, 30),
+        years_experience=experience,
+        graduation_year=graduation_year,
         highest_qualification=random.choice(QUALIFICATIONS),
+        degree_program=degree_program,
+        primary_specialization=primary_specialization,
         subject_specializations=json.dumps(specs),
         subjects_currently_teaching=json.dumps(currently_teaching),
         grade_levels_taught=json.dumps(random.sample(
@@ -284,6 +345,9 @@ def _make_teacher(session, region, province, city, profile):
         distance_to_training=("3hrs+" if is_far else random.choice(["<1hr", "1-3hrs"])),
         student_count=(random.randint(35, 55) if region == "NCR" else random.randint(15, 35)),
         preferred_format=random.choice(FORMATS),
+        preferred_relocation_regions=json.dumps(relocation_regions),
+        preferred_relocation_type=relocation_type,
+        last_training_year=last_training_year,
         source="seed",
         data_confidence=0.9,
         created_at=datetime.now(timezone.utc),
@@ -302,13 +366,15 @@ def seed():
     distributing them across cities (at least 3 per city) with
     characteristics matching the gap profiles defined above.
     """
-    # Don't overwrite existing database
-    if os.path.exists("star.db"):
-        print("star.db already exists. Skipping seed.")
-        return
-
     # Initialize database schema
     init_db()
+
+    # Don't overwrite existing populated database
+    with Session(engine) as session:
+        existing_teachers = len(session.exec(select(Teacher)).all())
+        if existing_teachers > 0:
+            print(f"star.db already has {existing_teachers} teachers. Skipping seed.")
+            return
 
     MIN_PER_CITY = 3  # minimum teachers guaranteed per city
 
@@ -349,7 +415,7 @@ def seed():
 
             for i, (province, city) in enumerate(region_cities):
                 for _ in range(counts[i]):
-                    teacher = _make_teacher(session, region, province, city, profile)
+                    teacher = _make_teacher(session, region, province, city, profile_key, profile)
                     all_teachers.append((teacher, region, partner_uni, profile["trained_pct"]))
 
         # Create training records based on trained percentage

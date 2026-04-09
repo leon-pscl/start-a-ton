@@ -255,14 +255,18 @@ def _empty_gap(region: str) -> dict:
     return {
         "region": region,
         "total_teachers": 0,
+        "total_students": 0,
         "trained_count": 0,
         "untrained_count": 0,
         "gap_score": 0.0,
         "gap_level": "low",
+        "avg_student_ratio": 0.0,
+        "engagement_reward": 0.0,
         "components": {
             "distance_score": 0.0,
             "coverage_score": 0.0,
             "mismatch_score": 0.0,
+            "workload_score": 0.0,
             "recency_score":  0.0,
         },
     }

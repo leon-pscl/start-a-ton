@@ -10,6 +10,8 @@ This module generates a stakeholder-ready PDF report containing:
 
 import os
 from fpdf import FPDF
+import matplotlib
+matplotlib.use("Agg", force=True)
 import matplotlib.pyplot as plt
 import io
 from datetime import datetime

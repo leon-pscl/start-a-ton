@@ -14,6 +14,7 @@ from sqlmodel import SQLModel, create_engine, Session
 from typing import Generator
 from pathlib import Path
 import os
+from sqlalchemy import text, inspect
 
 # ---------------------------------------------------------------------------
 # Database Connection Configuration
@@ -52,6 +53,44 @@ def init_db():
     recreate tables that already exist.
     """
     SQLModel.metadata.create_all(engine)
+
+    # Lightweight SQLite migration for existing development databases.
+    # This keeps the app working when new columns are added to SQLModel tables
+    # without requiring the user to delete star.db manually.
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    inspector = inspect(engine)
+    if "teacher" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("teacher")}
+    required_columns = {
+        "degree_program": "TEXT",
+        "primary_specialization": "TEXT",
+        "graduation_year": "INTEGER",
+        "preferred_relocation_regions": "TEXT",
+        "preferred_relocation_type": "TEXT",
+        "last_training_year": "INTEGER",
+    }
+
+    missing_columns = {
+        name: column_type for name, column_type in required_columns.items() if name not in existing_columns
+    }
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns.items():
+            connection.execute(text(f'ALTER TABLE teacher ADD COLUMN {column_name} {column_type}'))
+
+    if "graduation_year" in missing_columns:
+        connection.execute(
+            text(
+                "UPDATE teacher SET graduation_year = CAST(strftime('%Y', 'now') AS INTEGER) - years_experience - 4 "
+                "WHERE graduation_year IS NULL AND years_experience IS NOT NULL"
+            )
+        )
 
 
 # ---------------------------------------------------------------------------

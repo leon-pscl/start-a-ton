@@ -24,6 +24,15 @@ from app.models.models import Teacher, TrainingRecord, STAR_MODULES
 from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps, compute_subject_shortage
 from app.services.recommendation import rank_interventions
 from app.services.reporting import generate_executive_pdf
+from app.services.intelligence import (
+    build_teacher_intelligence,
+    build_region_intelligence,
+    build_school_intelligence,
+    build_division_intelligence,
+    build_system_intelligence,
+    suggest_reassignment_matches,
+    simulate_training_impact,
+)
 
 # Create router with /analytics prefix
 router = APIRouter(prefix="/analytics", tags=["analytics"])
@@ -49,27 +58,24 @@ def get_summary(session: Session = Depends(get_session)):
 
     Used by the Dashboard component for the summary cards.
     """
-    # Count all teachers
-    total = session.exec(select(Teacher)).all()
-
-    # Get all trained teacher IDs by checking training records
-    trained_ids = set(
-        r.teacher_id for r in session.exec(select(TrainingRecord)).all() if r.teacher_id
-    )
-    trained = [t for t in total if t.id in trained_ids]
-
-    # Compute gap scores for all regions
-    gap_scores = compute_all_regions(session)
+    system = build_system_intelligence(session)
 
     return {
-        "total_teachers":        len(total),
-        "trained_teachers":      len(trained),
-        "untrained_teachers":    len(total) - len(trained),
-        "training_coverage_pct": round(len(trained) / len(total) * 100, 1) if total else 0,
-        "regions_with_data":     len(set(t.region for t in total)),
-        "high_gap_regions":      sum(1 for g in gap_scores if g["gap_level"] == "high"),
-        "total_training_records": len(session.exec(select(TrainingRecord)).all()),
-        "star_modules":          STAR_MODULES,
+        "total_teachers": system["total_teachers"],
+        "trained_teachers": system["trained_teachers"],
+        "untrained_teachers": system["untrained_teachers"],
+        "training_coverage_pct": system["training_coverage_pct"],
+        "regions_with_data": system["regions_with_data"],
+        "high_gap_regions": system["high_gap_regions"],
+        "total_training_records": system["total_training_records"],
+        "star_modules": system["star_modules"],
+        "competency_distribution": system["competency_distribution"],
+        "out_of_field_pct": system["out_of_field_pct"],
+        "at_risk_schools": system["at_risk_schools"],
+        "average_competency_score": system["average_competency_score"],
+        "training_recency_gap_pct": system["training_recency_gap_pct"],
+        "critical_school_regions": system["critical_school_regions"],
+        "high_impact_interventions": system["high_impact_interventions"],
     }
 
 
@@ -108,8 +114,9 @@ def get_region_detail(region: str, session: Session = Depends(get_session)):
 
     This data powers the region detail panel when clicking a region on the map.
     """
-    # Get gap scores
+    # Get gap scores and region intelligence
     gap = compute_region_gap(region, session)
+    intelligence = build_region_intelligence(session, region)
 
     # Get all teachers in this region
     teachers = session.exec(select(Teacher).where(Teacher.region == region)).all()
@@ -128,7 +135,137 @@ def get_region_detail(region: str, session: Session = Depends(get_session)):
         ).all():
             module_counts[tr.module_name] = module_counts.get(tr.module_name, 0) + 1
 
-    return {**gap, "subject_breakdown": subject_counts, "module_uptake": module_counts}
+    return {
+        **gap,
+        **{k: intelligence[k] for k in (
+            "out_of_field_rate",
+            "avg_competency_score",
+            "training_recency_gap_pct",
+            "competency_distribution",
+            "at_risk_schools",
+            "schools",
+        )},
+        "subject_breakdown": subject_counts,
+        "module_uptake": module_counts,
+    }
+
+
+@router.get("/schools")
+def get_schools(
+    region: str = None,
+    city: str = None,
+    division: str = None,
+    school: str = None,
+    session: Session = Depends(get_session),
+):
+    """
+    Return school-level intelligence ranked by priority.
+
+    When region is provided, results are filtered to that region.
+    """
+    teachers = session.exec(select(Teacher)).all()
+    if region:
+        teachers = [teacher for teacher in teachers if teacher.region == region]
+    if city:
+        teachers = [teacher for teacher in teachers if (teacher.city or "") == city]
+    if division:
+        teachers = [teacher for teacher in teachers if (teacher.division or "") == division]
+    if school:
+        teachers = [teacher for teacher in teachers if (teacher.school_name or "") == school]
+
+    training_records = session.exec(select(TrainingRecord)).all()
+    teacher_trainings = {}
+    for training in training_records:
+        if training.teacher_id:
+            teacher_trainings.setdefault(training.teacher_id, []).append(training)
+
+    return build_school_intelligence(teachers, teacher_trainings)
+
+
+@router.get("/divisions")
+def get_divisions(
+    region: str = None,
+    city: str = None,
+    division: str = None,
+    session: Session = Depends(get_session),
+):
+    """
+    Return School Division Office level intelligence with school + teacher breakdowns.
+
+    Optional filters:
+    - region
+    - city
+    - division (exact match)
+    """
+    teachers = session.exec(select(Teacher)).all()
+    if region:
+        teachers = [teacher for teacher in teachers if teacher.region == region]
+    if city:
+        teachers = [teacher for teacher in teachers if teacher.city == city]
+    if division:
+        teachers = [teacher for teacher in teachers if (teacher.division or "") == division]
+
+    training_records = session.exec(select(TrainingRecord)).all()
+    teacher_trainings = {}
+    for training in training_records:
+        if training.teacher_id:
+            teacher_trainings.setdefault(training.teacher_id, []).append(training)
+
+    return build_division_intelligence(teachers, teacher_trainings)
+
+
+@router.get("/regional-insights")
+def get_regional_insights(session: Session = Depends(get_session)):
+    """
+    Return region-level actionable insights.
+
+    Includes:
+    - Core regional gap metrics
+    - Out-of-field and competency indicators
+    - School aggregation and priority counts
+    - Top subject training gaps per region
+    """
+    regions = compute_all_regions(session)
+    shortage = compute_subject_shortage(session)
+    matrix = shortage.get("matrix", {})
+
+    insights = []
+    for region_gap in regions:
+        region_name = region_gap["region"]
+        intelligence = build_region_intelligence(session, region_name)
+        schools = intelligence.get("schools", [])
+
+        subject_gaps = []
+        for subject, per_region in matrix.items():
+            count = per_region.get(region_name, 0)
+            if count > 0:
+                subject_gaps.append({"subject": subject, "count": count})
+        subject_gaps.sort(key=lambda item: (-item["count"], item["subject"]))
+
+        critical = sum(1 for school in schools if school.get("priority_level") == "Critical")
+        moderate = sum(1 for school in schools if school.get("priority_level") == "Moderate")
+
+        insights.append({
+            "region": region_name,
+            "gap_score": region_gap.get("gap_score", 0),
+            "gap_level": region_gap.get("gap_level", "low"),
+            "total_teachers": intelligence.get("total_teachers", 0),
+            "trained_teachers": intelligence.get("trained_teachers", 0),
+            "training_coverage_pct": round(
+                (intelligence.get("trained_teachers", 0) / max(intelligence.get("total_teachers", 1), 1)) * 100,
+                1,
+            ) if intelligence.get("total_teachers", 0) else 0.0,
+            "out_of_field_pct": intelligence.get("out_of_field_rate", 0),
+            "avg_competency_score": intelligence.get("avg_competency_score", 0),
+            "training_recency_gap_pct": intelligence.get("training_recency_gap_pct", 0),
+            "school_count": len(schools),
+            "critical_schools": critical,
+            "moderate_schools": moderate,
+            "at_risk_schools": intelligence.get("at_risk_schools", 0),
+            "top_subject_gaps": subject_gaps[:5],
+        })
+
+    return insights
 
 
 # ---------------------------------------------------------------------------
@@ -159,6 +296,10 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
     trained_ids = set(
         r.teacher_id for r in session.exec(select(TrainingRecord)).all() if r.teacher_id
     )
+    teacher_trainings = {}
+    for training in session.exec(select(TrainingRecord)).all():
+        if training.teacher_id:
+            teacher_trainings.setdefault(training.teacher_id, []).append(training)
 
     # Generate CSV in memory
     output = io.StringIO()
@@ -167,18 +308,21 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
     # Write header row
     writer.writerow([
         "ID", "Full Name", "Region", "Province", "City", "Division", "School",
-        "Position", "Years Experience", "Highest Qualification",
-        "Subject Specializations", "Grade Levels Taught", "Is Trained", "Source", "Data Confidence",
+        "Position", "Years Experience", "Highest Qualification", "Degree Program", "Primary Specialization",
+        "Subject Specializations", "Grade Levels Taught", "Is Trained", "Competency Score", "Competency Level",
+        "Out of Field", "Recommended Action", "Last Training Year", "Preferred Relocation Type", "Source", "Data Confidence",
     ])
 
     # Write data rows
     for t in teachers:
         specs = ", ".join(json.loads(t.subject_specializations or "[]"))
         grades = ", ".join(json.loads(t.grade_levels_taught or "[]"))
+        intelligence = build_teacher_intelligence(t, teacher_trainings.get(t.id, []))
         writer.writerow([
             t.id, t.full_name, t.region, t.province or "", t.city or "", t.division or "", t.school_name or "",
-            t.position or "", t.years_experience or "", t.highest_qualification or "",
-            specs, grades, t.id in trained_ids, t.source, t.data_confidence,
+            t.position or "", t.years_experience or "", t.highest_qualification or "", t.degree_program or "", t.primary_specialization or "",
+            specs, grades, t.id in trained_ids, intelligence["competency_score"], intelligence["competency_level"], intelligence["is_out_of_field"],
+            intelligence["recommended_action"], intelligence["last_training_year"] or "", t.preferred_relocation_type or "", t.source, t.data_confidence,
         ])
 
     output.seek(0)
@@ -245,3 +389,15 @@ def get_provinces(session: Session = Depends(get_session)):
 @router.get("/cities")
 def get_cities(session: Session = Depends(get_session)):
     return compute_city_gaps(session)
+
+
+@router.post("/simulate")
+def simulate(training_count: int = 10, uplift: int = 12, session: Session = Depends(get_session)):
+    """Optional what-if analysis for training impact."""
+    return simulate_training_impact(session, teachers_to_train=training_count, uplift=uplift)
+
+
+@router.get("/reassignments")
+def reassignments(limit: int = 15, session: Session = Depends(get_session)):
+    """Optional relocation suggestions matched to high-need schools."""
+    return suggest_reassignment_matches(session, limit=limit)

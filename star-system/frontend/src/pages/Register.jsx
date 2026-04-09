@@ -13,9 +13,10 @@
  */
 
 import { useState } from 'react'
-import { registerTeacher } from '../lib/api'
+import { registerTeacher, getTeacher, updateTeacher } from '../lib/api'
 import { REGIONS, SUBJECTS, STAR_MODULES, PROVINCES, CITIES } from '../lib/constants'
 import { CheckboxGroup, Select } from '../components/shared'
+// import Sidebar from '../components/shared/Sidebar'
 
 // ---------------------------------------------------------------------------
 // Wizard Configuration
@@ -44,10 +45,12 @@ const INITIAL = {
   full_name: '', region: '', province: '', city: '',
   division: '', school_name: '', school_type: 'public',
   position: '', years_experience: '', highest_qualification: '',
+  degree_program: '', primary_specialization: '',
   subject_specializations: [], subjects_currently_teaching: [], grade_levels_taught: [],
   trainings_attended: [],
   low_confidence_subjects: [], unapplied_modules: [],
   distance_to_training: '', preferred_format: '',
+  preferred_relocation_regions: [], preferred_relocation_type: '', last_training_year: '',
 }
 
 // ---------------------------------------------------------------------------
@@ -61,11 +64,40 @@ export default function Register() {
   const [submitted, setSubmitted] = useState(null) // Success result
   const [error, setError] = useState('')          // Error message
   const [loading, setLoading] = useState(false)   // Submission in progress
+  const [portalTeacherId, setPortalTeacherId] = useState('')
+  const [lookupId, setLookupId] = useState('')
+  const [lookupLoading, setLookupLoading] = useState(false)
 
   /**
    * Update a single form field.
    */
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  const loadProfile = async () => {
+    if (!lookupId.trim()) return
+    setLookupLoading(true)
+    setError('')
+    try {
+      const teacher = await getTeacher(lookupId.trim())
+      setForm({
+        ...INITIAL,
+        ...teacher,
+        subject_specializations: teacher.subject_specializations || [],
+        subjects_currently_teaching: teacher.subjects_currently_teaching || [],
+        grade_levels_taught: teacher.grade_levels_taught || [],
+        trainings_attended: (teacher.trainings || []).map(tr => tr.module_name).filter(Boolean),
+        low_confidence_subjects: teacher.low_confidence_subjects || [],
+        unapplied_modules: teacher.unapplied_modules || [],
+        preferred_relocation_regions: teacher.preferred_relocation_regions || [],
+      })
+      setPortalTeacherId(teacher.id)
+      setStep(0)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLookupLoading(false)
+    }
+  }
 
   /**
    * Navigate to next step (with validation).
@@ -96,8 +128,11 @@ export default function Register() {
       const payload = {
         ...form,
         years_experience: form.years_experience ? parseInt(form.years_experience) : null,
+        last_training_year: form.last_training_year ? parseInt(form.last_training_year) : null,
       }
-      const result = await registerTeacher(payload)
+      const result = portalTeacherId
+        ? await updateTeacher(portalTeacherId, payload)
+        : await registerTeacher(payload)
       setSubmitted(result)
     } catch (e) {
       setError(e.message)
@@ -146,7 +181,7 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-star-50 to-slate-100 flex items-start justify-center py-10 px-4">
       <div className="w-full max-w-xl">
-
+        {/* <Sidebar /> */}
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full px-4 py-1.5 mb-4">
@@ -155,6 +190,24 @@ export default function Register() {
           </div>
           <h1 className="text-2xl font-display font-bold text-slate-800">Teacher registration</h1>
           <p className="text-sm text-slate-500 mt-1">Science Teacher Academy for the Regions</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 mb-5 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Open existing profile</p>
+            <p className="text-xs text-slate-400">Load a teacher by ID to review and update profile fields.</p>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <input
+              className="input text-sm flex-1 sm:w-72"
+              placeholder="Paste teacher ID"
+              value={lookupId}
+              onChange={e => setLookupId(e.target.value)}
+            />
+            <button onClick={loadProfile} disabled={lookupLoading} className="btn-secondary text-xs">
+              {lookupLoading ? 'Loading...' : 'Load'}
+            </button>
+          </div>
         </div>
 
         {/* Step indicator */}
@@ -185,7 +238,14 @@ export default function Register() {
 
         {/* Form card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-base font-semibold text-slate-800 mb-5">{STEPS[step]}</h2>
+          <div className="flex items-center justify-between mb-5 gap-3">
+            <h2 className="text-base font-semibold text-slate-800">{portalTeacherId ? 'Teacher portal' : STEPS[step]}</h2>
+            {portalTeacherId && (
+              <span className="text-[10px] uppercase tracking-wide px-2 py-1 rounded-full bg-indigo-50 text-indigo-700">
+                editing existing profile
+              </span>
+            )}
+          </div>
 
           {/* Step content */}
           {step === 0 && <Step1 form={form} set={set} />}
@@ -343,6 +403,22 @@ function Step2({ form, set }) {
           placeholder="Select qualification"
         />
       </Field>
+              <Field label="Degree program">
+                <input
+                  className="input"
+                  placeholder="e.g. BSEd Mathematics"
+                  value={form.degree_program}
+                  onChange={e => set('degree_program', e.target.value)}
+                />
+              </Field>
+              <Field label="Primary specialization">
+                <Select
+                  value={form.primary_specialization}
+                  onChange={v => set('primary_specialization', v)}
+                  options={SUBJECTS}
+                  placeholder="Select specialization"
+                />
+              </Field>
       <CheckboxGroup
         label="Subject specializations (select all that apply)"
         options={SUBJECTS}
@@ -426,6 +502,37 @@ function Step4({ form, set }) {
           onChange={v => set('preferred_format', v)}
           options={FORMATS.map(f => ({ value: f, label: f.charAt(0).toUpperCase() + f.slice(1) }))}
           placeholder="Select format"
+        />
+      </Field>
+      <Field label="Preferred relocation regions">
+        <CheckboxGroup
+          label="Select relocation targets"
+          options={REGIONS}
+          selected={form.preferred_relocation_regions}
+          onChange={v => set('preferred_relocation_regions', v)}
+        />
+      </Field>
+      <Field label="Preferred relocation type">
+        <Select
+          value={form.preferred_relocation_type}
+          onChange={v => set('preferred_relocation_type', v)}
+          options={[
+            { value: 'same region', label: 'Same region' },
+            { value: 'nearby', label: 'Nearby regions' },
+            { value: 'nationwide', label: 'Nationwide' },
+          ]}
+          placeholder="Select relocation type"
+        />
+      </Field>
+      <Field label="Last training year">
+        <input
+          type="number"
+          min="2015"
+          max="2035"
+          className="input"
+          placeholder="e.g. 2024"
+          value={form.last_training_year}
+          onChange={e => set('last_training_year', e.target.value)}
         />
       </Field>
     </div>
