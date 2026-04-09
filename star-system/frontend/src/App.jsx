@@ -17,7 +17,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/shared/Sidebar'
 import MobileNav from './components/shared/MobileNav'
-// import ChatWidget from './components/shared/ChatWidget' // TODO: Enable after deploying LLM
+import ChatWidget from './components/shared/ChatWidget'
 import Dashboard   from './pages/Dashboard'
 import RegionsPage from './pages/Regions'
 import TeachersPage from './pages/Teachers'
@@ -53,8 +53,8 @@ function Layout({ children }) {
       {/* Main content area - responsive width and scrolling */}
       <main className="flex-1 overflow-auto w-full">{children}</main>
 
-      {/* AI Chat Widget - disabled until LLM deployment */}
-      {/* <ChatWidget /> */}
+      {/* AI Chat Widget */}
+      <ChatWidget />
     </div>
   )
 }
