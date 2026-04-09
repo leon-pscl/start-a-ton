@@ -5,8 +5,8 @@
  * about the current data being viewed.
  */
 
-import { useState } from 'react'
-import { sendChat } from '../../lib/api'
+import { useState, useEffect } from 'react'
+import { sendChat, getSummary } from '../../lib/api'
 
 /**
  * Simple markdown renderer for chat messages.
@@ -90,11 +90,21 @@ function renderMarkdown(text) {
   return <div className="space-y-1">{elements}</div>
 }
 
-export default function ChatWidget({ context = {} }) {
+export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [dataContext, setDataContext] = useState(null)
+
+  // Fetch summary data when chat opens
+  useEffect(() => {
+    if (isOpen && !dataContext) {
+      getSummary()
+        .then(data => setDataContext(data))
+        .catch(() => setDataContext({}))
+    }
+  }, [isOpen, dataContext])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -106,7 +116,7 @@ export default function ChatWidget({ context = {} }) {
     setLoading(true)
 
     try {
-      const data = await sendChat(userMessage, context)
+      const data = await sendChat(userMessage, { summary: dataContext })
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
     } catch (err) {
       setMessages(prev => [...prev, {
@@ -149,7 +159,9 @@ export default function ChatWidget({ context = {} }) {
             </div>
             <div>
               <h3 className="font-semibold text-slate-800 text-sm">STAR Assistant</h3>
-              <p className="text-xs text-slate-500">Ask about the data</p>
+              <p className="text-xs text-slate-500">
+                {dataContext ? `${dataContext.total_teachers?.toLocaleString()} teachers in system` : 'Loading data...'}
+              </p>
             </div>
           </div>
 
@@ -158,7 +170,7 @@ export default function ChatWidget({ context = {} }) {
             {messages.length === 0 && (
               <div className="text-center py-8">
                 <p className="text-sm text-slate-500">
-                  Ask questions about the data you're viewing.
+                  Ask questions about the STAR data.
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
                   Try: "Which regions need the most training?"

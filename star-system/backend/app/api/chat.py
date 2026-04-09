@@ -32,41 +32,49 @@ class ChatResponse(BaseModel):
 def build_system_prompt(context: dict) -> str:
     """Build a system prompt with context about the current page data."""
     base_prompt = """You are an AI assistant for the STAR (Science Teacher Academy for the Regions) data system.
-Your role is to help users understand the education data displayed on their screen.
 
-You can answer questions about:
+IMPORTANT: Only use the data provided in the context below. Do not make up numbers or statistics.
+If you don't have specific data, say "I don't have that specific data available" rather than guessing.
+
+You can help users understand:
 - Teacher statistics and training coverage
 - Regional gap scores and priorities
 - School-level data and interventions
-- Subject specializations and training needs
 
-Be concise and helpful. If you don't know something based on the provided context, say so.
-Format numbers with commas (e.g., "1,234 teachers").
-Use bullet points for lists."""
+Be concise and helpful. Format numbers with commas (e.g., "1,234 teachers")."""
 
-    if not context:
-        return base_prompt
+    if not context or not context.get("summary"):
+        return base_prompt + "\n\nNote: No current data context available. Ask the user to provide specific numbers if they ask about statistics."
 
-    # Add context about current page/view
-    context_parts = []
-    if context.get("page"):
-        context_parts.append(f"Current page: {context['page']}")
-    if context.get("region"):
-        context_parts.append(f"Selected region: {context['region']}")
-    if context.get("summary"):
-        summary = context["summary"]
-        context_parts.append(f"""Current data summary:
-- Total teachers: {summary.get('total_teachers', 'N/A'):,}
-- Training coverage: {summary.get('training_coverage_pct', 'N/A')}%
-- High-gap regions: {summary.get('high_gap_regions', 'N/A')}
-- At-risk schools: {summary.get('at_risk_schools', 'N/A')}""")
-    if context.get("selectedData"):
-        context_parts.append(f"Selected data: {context['selectedData']}")
+    # Add actual data summary
+    summary = context.get("summary", {})
+    context_parts = ["""
+CURRENT DATA (use ONLY these numbers):
+"""]
 
-    if context_parts:
-        return f"{base_prompt}\n\nCurrent context:\n" + "\n".join(context_parts)
+    if summary.get("total_teachers"):
+        context_parts.append(f"- Total teachers: {summary['total_teachers']:,}")
+    if summary.get("trained_teachers"):
+        context_parts.append(f"- Trained teachers: {summary['trained_teachers']:,}")
+    if summary.get("training_coverage_pct"):
+        context_parts.append(f"- Training coverage: {summary['training_coverage_pct']}%")
+    if summary.get("high_gap_regions"):
+        context_parts.append(f"- High-gap regions: {summary['high_gap_regions']}")
+    if summary.get("at_risk_schools"):
+        context_parts.append(f"- At-risk schools: {summary['at_risk_schools']}")
+    if summary.get("out_of_field_pct"):
+        context_parts.append(f"- Out-of-field teachers: {summary['out_of_field_pct']}%")
+    if summary.get("total_training_records"):
+        context_parts.append(f"- Total training records: {summary['total_training_records']:,}")
 
-    return base_prompt
+    if summary.get("competency_distribution"):
+        dist = summary["competency_distribution"]
+        context_parts.append(f"- Competency distribution: Low={dist.get('low', 0)}, Medium={dist.get('medium', 0)}, High={dist.get('high', 0)}")
+
+    if summary.get("star_modules"):
+        context_parts.append(f"- STAR modules: {', '.join(summary['star_modules'])}")
+
+    return base_prompt + "\n".join(context_parts)
 
 
 @router.post("", response_model=ChatResponse)
