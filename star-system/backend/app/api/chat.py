@@ -52,7 +52,7 @@ Format:
 - Keep responses to 3 to 6 sentences or a short bullet list unless more is clearly needed.
 - Use bullet points for any list of 3 or more items.
 - Always format numbers with commas: 12,345 not 12345.
-- When the data supports it, end with one concrete implication or action (e.g., "Given its 78% gap score and only 31% coverage, Region X would be the highest-impact target for the next training cohort.").
+- When the data supports it, end with one concrete implication or action.
 
 When data is missing or unclear:
 - If a question is ambiguous, ask one short clarifying question before answering.
@@ -97,30 +97,47 @@ When data is missing or unclear:
             )
         context_parts.append("")
 
-    # Top schools
-    if context.get("top_schools"):
-        context_parts.append("## Priority Schools (Top 20):")
-        for s in context["top_schools"]:
-            coverage = s.get('training_coverage_pct', 0) or 0
+    # Regional insights (detailed)
+    if context.get("regional_insights"):
+        context_parts.append("## Regional Insights (Detailed):")
+        for ri in context["regional_insights"][:10]:  # Limit to first 10 for token efficiency
             context_parts.append(
-                f"- {s['name']} ({s['region']}, {s.get('city', 'N/A')}): "
-                f"{s['total_teachers']} teachers, {coverage:.0f}% coverage, {s['priority_level']} priority"
+                f"- {ri['region']}: {ri['total_teachers']} teachers, "
+                f"{ri['training_coverage_pct']:.1f}% coverage, "
+                f"{ri['out_of_field_pct']:.1f}% out-of-field, "
+                f"{ri['critical_schools']} critical schools, "
+                f"competency: {ri.get('avg_competency_score', 'N/A')}"
             )
+        context_parts.append("")
+
+    # Schools data
+    if context.get("all_schools"):
+        context_parts.append("## All Schools (Summary):")
+        # Group by priority level
+        critical = [s for s in context["all_schools"] if s.get("priority_level") == "Critical"]
+        moderate = [s for s in context["all_schools"] if s.get("priority_level") == "Moderate"]
+        low = [s for s in context["all_schools"] if s.get("priority_level") == "Low"]
+        context_parts.append(f"- Critical priority: {len(critical)} schools")
+        context_parts.append(f"- Moderate priority: {len(moderate)} schools")
+        context_parts.append(f"- Low priority: {len(low)} schools")
+        # Top 5 critical schools
+        if critical:
+            context_parts.append("- Top critical schools:")
+            for s in critical[:5]:
+                context_parts.append(f"  - {s['name']} ({s['region']}): {s['total_teachers']} teachers, {s.get('training_coverage_pct', 0):.0f}% coverage")
         context_parts.append("")
 
     # Subject shortage data
     if context.get("subject_shortage"):
-        context_parts.append("## Subject Specialization Shortage (by Region):")
+        context_parts.append("## Subject Specialization Shortage:")
         shortage = context["subject_shortage"]
         if isinstance(shortage, dict):
-            # Summarize top subjects with shortages across all regions
             subject_totals = {}
             for subject, regions in shortage.items():
                 if isinstance(regions, dict):
                     total = sum(regions.values())
                     subject_totals[subject] = total
-            # Sort by total shortage
-            sorted_subjects = sorted(subject_totals.items(), key=lambda x: -x[1])[:5]
+            sorted_subjects = sorted(subject_totals.items(), key=lambda x: -x[1])[:10]
             for subject, total in sorted_subjects:
                 context_parts.append(f"- {subject}: {total} teachers needed")
         context_parts.append("")

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { sendChat, getSummary, getRegions, getSchools, getSubjectShortage } from '../../lib/api'
+import { sendChat, getSummary, getRegions, getSchools, getSubjectShortage, getRegionalInsights } from '../../lib/api'
 
 /**
  * Simple markdown renderer for chat messages.
@@ -100,8 +100,8 @@ export default function ChatWidget() {
   // Fetch all data when chat opens
   useEffect(() => {
     if (isOpen && !dataContext) {
-      Promise.all([getSummary(), getRegions(), getSchools(), getSubjectShortage()])
-        .then(([summary, regions, schools, subjectShortage]) => {
+      Promise.all([getSummary(), getRegions(), getSchools(), getSubjectShortage(), getRegionalInsights()])
+        .then(([summary, regions, schools, subjectShortage, regionalInsights]) => {
           setDataContext({
             summary,
             regions: regions.map(r => ({
@@ -110,17 +110,36 @@ export default function ChatWidget() {
               gap_level: r.gap_level,
               total_teachers: r.total_teachers,
               trained_teachers: r.trained_teachers,
-              training_coverage_pct: r.training_coverage_pct
+              training_coverage_pct: r.training_coverage_pct,
+              impact_score: r.impact_score,
+              components: r.components
             })),
-            top_schools: schools.slice(0, 20).map(s => ({
+            all_schools: schools.map(s => ({
               name: s.school_name,
               region: s.region,
               city: s.city,
+              division: s.division,
               total_teachers: s.total_teachers,
+              trained_teachers: s.trained_teachers,
               training_coverage_pct: s.training_coverage_pct,
-              priority_level: s.priority_level
+              priority_level: s.priority_level,
+              competency_score: s.competency_score,
+              is_out_of_field: s.is_out_of_field
             })),
-            subject_shortage: subjectShortage.matrix || subjectShortage
+            subject_shortage: subjectShortage.matrix || subjectShortage,
+            regional_insights: regionalInsights.map(ri => ({
+              region: ri.region,
+              gap_score: ri.gap_score,
+              gap_level: ri.gap_level,
+              total_teachers: ri.total_teachers,
+              training_coverage_pct: ri.training_coverage_pct,
+              out_of_field_pct: ri.out_of_field_pct,
+              avg_competency_score: ri.avg_competency_score,
+              critical_schools: ri.critical_schools,
+              moderate_schools: ri.moderate_schools,
+              at_risk_schools: ri.at_risk_schools,
+              top_subject_gaps: ri.top_subject_gaps
+            }))
           })
         })
         .catch(() => setDataContext({}))
