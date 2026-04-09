@@ -56,6 +56,18 @@ def on_startup():
     """
     init_db()
 
+    # Seed database if empty (for first deploy)
+    from sqlmodel import Session, select
+    from app.models.models import Teacher
+    from app.core.database import engine
+    from seed import seed
+
+    with Session(engine) as session:
+        existing = len(session.exec(select(Teacher)).all())
+        if existing == 0:
+            print("No data found. Seeding database...")
+            seed()
+
 
 # ---------------------------------------------------------------------------
 # API Route Registration
