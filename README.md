@@ -7,19 +7,19 @@ So far, this is built to be run locally.
 Open a terminal and run the following line by line:
 ```bash
 cd star-system/backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1
+python -m venv venv
+venv\Scripts\Activate
 python -m pip install -r requirements.txt
 ```
 
 If you are using Command Prompt (`cmd.exe`), use:
 ```bash
-.venv\Scripts\activate.bat
+venv\Scripts\activate.bat
 ```
 
 If you are using Git Bash, use:
 ```bash
-source .venv/Scripts/activate
+source venv/Scripts/activate
 ```
 
 to initialize the database, and then fill it with mock data:
