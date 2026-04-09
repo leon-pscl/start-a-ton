@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://qceb-start-a-ton.onrender.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://qceb-start-a-ton.onrender.com/$1" }
   ]
 }
