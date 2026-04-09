@@ -29,13 +29,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/star.db")
 
 # Create the database engine with connection pooling
-# SQLite-specific: check_same_thread=False allows multi-threaded access
-# (SQLite by default only allows connections from the thread that created it)
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
-    echo=False,  # Set to True for SQL query logging during debugging
-)
+# For SQLite: use NullPool to avoid connection pool issues in serverless/threaded envs
+# For PostgreSQL: use connection pool with pre-ping
+if "sqlite" in DATABASE_URL:
+    # SQLite works best with NullPool in web servers (no connection pooling)
+    from sqlalchemy.pool import NullPool
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=NullPool,
+        echo=False,
+    )
+else:
+    # PostgreSQL/MySQL: use connection pool with pre-ping
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        echo=False,
+    )
 
 
 # ---------------------------------------------------------------------------
