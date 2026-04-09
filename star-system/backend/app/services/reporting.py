@@ -10,6 +10,7 @@ This module generates a stakeholder-ready PDF report containing:
 
 import os
 import tempfile
+import traceback
 from fpdf import FPDF
 import matplotlib
 matplotlib.use("Agg", force=True)
@@ -17,6 +18,10 @@ import matplotlib.pyplot as plt
 import io
 from datetime import datetime
 from typing import List, Dict, Any
+
+# Configure matplotlib for headless environments
+plt.rcParams['font.family'] = 'DejaVu Sans'
+plt.rcParams['axes.unicode_minus'] = False
 
 class STARReport(FPDF):
     def header(self):
@@ -66,6 +71,14 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
+    # Check for empty data
+    if not regions_analysis:
+        pdf.set_font('helvetica', '', 12)
+        pdf.multi_cell(0, 10, "No regional data available. Please ensure the database has been seeded with teacher data.")
+        output_path = os.path.join(temp_dir, filename)
+        pdf.output(output_path)
+        return output_path
+
     # 1. Executive Summary Table
     pdf.set_font('helvetica', 'B', 12)
     pdf.cell(0, 10, '1. National Overview', ln=True)
@@ -88,20 +101,25 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     pdf.cell(0, 10, '2. Priority Visualization', ln=True)
 
     # Create chart with safe data
-    safe_regions = [
-        {"region": r.get("region", "Unknown"), "gap_score": r.get("gap_score", 0)}
-        for r in regions_analysis
-    ]
-    chart_buf = create_wpi_chart(safe_regions)
+    try:
+        safe_regions = [
+            {"region": r.get("region", "Unknown"), "gap_score": r.get("gap_score", 0)}
+            for r in regions_analysis
+        ]
+        chart_buf = create_wpi_chart(safe_regions)
 
-    # Write chart to temp file
-    tmp_chart = os.path.join(temp_dir, "tmp_wpi_chart.png")
-    with open(tmp_chart, "wb") as f:
-        f.write(chart_buf.getbuffer())
+        # Write chart to temp file
+        tmp_chart = os.path.join(temp_dir, "tmp_wpi_chart.png")
+        with open(tmp_chart, "wb") as f:
+            f.write(chart_buf.getbuffer())
 
-    pdf.image(tmp_chart, x=15, w=180)
-    pdf.ln(5)
-    os.remove(tmp_chart)
+        pdf.image(tmp_chart, x=15, w=180)
+        pdf.ln(5)
+        os.remove(tmp_chart)
+    except Exception as e:
+        pdf.set_font('helvetica', 'I', 10)
+        pdf.multi_cell(0, 10, f"[Chart could not be generated: {str(e)}]")
+        pdf.ln(5)
 
     # 3. Top 5 Priorities & Recommendations
     pdf.add_page()

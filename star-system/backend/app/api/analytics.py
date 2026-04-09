@@ -341,31 +341,42 @@ def export_csv(region: str = None, session: Session = Depends(get_session)):
 def export_pdf(session: Session = Depends(get_session)):
     """
     Export detailed PDF executive summary.
-    
+
     Generates a stakeholder-ready report with:
     - National overview
     - Priority visualizations (charts)
     - Regional intervention mapping
     - Strategic policy recommendations
     """
-    results = compute_all_regions(session)
-    ranked = rank_interventions(results)
-    
-    pdf_path = generate_executive_pdf(ranked)
-    
-    with open(pdf_path, "rb") as f:
-        pdf_data = f.read()
-    
-    # Cleanup tmp file? (In production use a background task or unique names)
-    # os.remove(pdf_path) 
-    
-    filename = f"star_executive_summary_{datetime.now().strftime('%Y%m%d')}.pdf"
-    
-    return StreamingResponse(
-        io.BytesIO(pdf_data),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+    import os
+    from fastapi import HTTPException
+
+    try:
+        results = compute_all_regions(session)
+        ranked = rank_interventions(results)
+
+        pdf_path = generate_executive_pdf(ranked)
+
+        with open(pdf_path, "rb") as f:
+            pdf_data = f.read()
+
+        # Clean up temp file
+        try:
+            os.remove(pdf_path)
+        except:
+            pass
+
+        filename = f"star_executive_summary_{datetime.now().strftime('%Y%m%d')}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_data),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)}")
     
 @router.get("/subject-shortage")
 def get_subject_shortage(session: Session = Depends(get_session)):
