@@ -17,7 +17,7 @@ The application uses:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import init_db
-from app.api import teachers, analytics, imports
+from app.api import teachers, analytics, imports, chat
 
 # ---------------------------------------------------------------------------
 # Application Configuration
@@ -66,6 +66,7 @@ def on_startup():
 app.include_router(teachers.router)    # Teacher CRUD operations
 app.include_router(analytics.router)   # Gap score analytics and reporting
 app.include_router(imports.router)     # Data import endpoints (SF7, training logs)
+app.include_router(chat.router)         # AI chatbot endpoint
 
 
 # ---------------------------------------------------------------------------

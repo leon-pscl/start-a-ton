@@ -17,6 +17,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Sidebar from './components/shared/Sidebar'
 import MobileNav from './components/shared/MobileNav'
+import ChatWidget from './components/shared/ChatWidget'
 import Dashboard   from './pages/Dashboard'
 import RegionsPage from './pages/Regions'
 import TeachersPage from './pages/Teachers'
@@ -45,12 +46,15 @@ function Layout({ children }) {
     <div className="flex flex-col min-h-screen sm:flex-row">
       {/* Mobile navigation - only visible on small screens */}
       <MobileNav />
-      
+
       {/* Desktop sidebar - only visible on sm and larger screens */}
       <Sidebar />
-      
+
       {/* Main content area - responsive width and scrolling */}
       <main className="flex-1 overflow-auto w-full">{children}</main>
+
+      {/* AI Chat Widget - available on all pages */}
+      <ChatWidget />
     </div>
   )
 }

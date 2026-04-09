@@ -7,6 +7,9 @@
 
 import { GAP_COLORS } from '../../lib/constants'
 
+// Re-export ChatWidget for easy import
+export { default as ChatWidget } from './ChatWidget'
+
 // ---------------------------------------------------------------------------
 // StatCard - Dashboard Summary Metric
 // ---------------------------------------------------------------------------

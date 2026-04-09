@@ -236,3 +236,17 @@ export const simulateTraining = (training_count = 10, uplift = 12) =>
   request(`/analytics/simulate?training_count=${training_count}&uplift=${uplift}`, { method: 'POST' })
 export const getReassignmentSuggestions = (limit = 15) =>
   request(`/analytics/reassignments?limit=${limit}`)
+
+// ---------------------------------------------------------------------------
+// Chat Endpoint
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a message to the AI chatbot.
+ *
+ * @param {string} message - User's question
+ * @param {object} context - Current page context (region, filters, summary data)
+ * @returns {Promise<{response: string}>}
+ */
+export const sendChat = (message, context = {}) =>
+  request('/chat', { method: 'POST', body: JSON.stringify({ message, context }) })
