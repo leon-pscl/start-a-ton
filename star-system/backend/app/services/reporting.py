@@ -39,24 +39,41 @@ class STARReport(FPDF):
 
 def create_wpi_chart(regions: List[Dict[str, Any]]) -> io.BytesIO:
     """Create a bar chart of WPI scores for the top 10 priority regions."""
-    # Sort and take top 10
-    top_10 = sorted(regions, key=lambda x: -x["gap_score"])[:10]
-    names = [r["region"] for r in top_10]
-    scores = [r["gap_score"] for r in top_10]
+    # Sort and take top 10, ensuring proper data types
+    sorted_regions = sorted(regions, key=lambda x: -float(x.get("gap_score", 0)))
+    top_10 = sorted_regions[:10]
 
-    plt.figure(figsize=(10, 6))
-    colors = ['#d32f2f' if s >= 0.7 else '#f57c00' if s >= 0.4 else '#388e3c' for s in scores]
-    plt.bar(names, scores, color=colors)
-    plt.axhline(y=0.7, color='r', linestyle='--', alpha=0.5, label='High Priority Threshold')
-    plt.title('Top 10 Priority Regions by Weighted Priority Index (WPI)')
-    plt.ylabel('WPI Score (0-1)')
+    # Extract data with explicit type conversion
+    names = [str(r.get("region", "Unknown")) for r in top_10]
+    scores = [float(r.get("gap_score", 0)) for r in top_10]
+
+    # Create figure with explicit size
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Determine colors based on scores
+    colors = []
+    for s in scores:
+        if s >= 0.7:
+            colors.append('#d32f2f')
+        elif s >= 0.4:
+            colors.append('#f57c00')
+        else:
+            colors.append('#388e3c')
+
+    # Create bar chart
+    ax.bar(names, scores, color=colors)
+    ax.axhline(y=0.7, color='r', linestyle='--', alpha=0.5, label='High Priority Threshold')
+    ax.set_title('Top 10 Priority Regions by Weighted Priority Index (WPI)')
+    ax.set_ylabel('WPI Score (0-1)')
     plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
+    fig.tight_layout()
 
+    # Save to buffer
     img_buf = io.BytesIO()
-    plt.savefig(img_buf, format='png')
+    fig.savefig(img_buf, format='png', dpi=100)
     img_buf.seek(0)
-    plt.close()
+    plt.close(fig)
+
     return img_buf
 
 def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str = "star_executive_summary.pdf") -> str:
