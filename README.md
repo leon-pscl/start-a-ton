@@ -1,48 +1,76 @@
-# start-a-ton
+# STAR System - Science Teacher Academy for the Regions
 
-So far, this is built to be run locally.
+A data system that analyzes teacher training coverage, gap scores, and intervention priorities across the Philippines.
 
-## Backend
+## Features
 
-Open a terminal and run the following line by line:
+- **Dashboard** - System-wide summary statistics and key metrics
+- **Regional Analysis** - Interactive map with gap analysis by region
+- **School Intelligence** - Priority ranking of schools needing intervention
+- **Teacher Profiles** - Browse and manage teacher records
+- **Data Import** - Upload SF7 exports and/or training logs
+- **AI Chatbot** - Ask questions about the data (powered by Groq/Llama)
+- **PDF Reports** - Generate summary reports
+
+## Tech Stack
+
+- **Backend**: FastAPI, SQLModel, SQLite
+- **Frontend**: React, Vite, TailwindCSS
+- **AI**: Groq API (Llama 3.3)
+- **Deployment**: Vercel (frontend), Render (backend)
+
+## Running Locally
+
+**This branch is configured for cloud deployment.**
+
+To run the project locally with Ollama for the AI chatbot, switch to the `run-local` branch:
+
 ```bash
-cd star-system/backend
-python -m venv venv
-venv\Scripts\Activate
-python -m pip install -r requirements.txt
+git checkout run-local
 ```
 
-If you are using Command Prompt (`cmd.exe`), use:
-```bash
-venv\Scripts\activate.bat
+Then follow the setup instructions in that branch's README.
+
+## Deployment
+
+The main branch is configured for deployment:
+
+- **Frontend**: Vercel (proxies `/api` to Render)
+- **Backend**: Render (requires `GROQ_API_KEY` environment variable)
+- **Database**: SQLite (seeded on first deploy)
+
+### Required Environment Variables
+
+```
+GROQ_API_KEY=your_groq_api_key
 ```
 
-If you are using Git Bash, use:
-```bash
-source venv/Scripts/activate
+## Project Structure
+
+```
+star-system/
+├── backend/
+│   ├── main.py              # FastAPI entry point
+│   ├── seed.py              # Database seeding
+│   ├── requirements.txt     # Python dependencies
+│   └── app/
+│       ├── api/             # API routes (teachers, analytics, chat, import)
+│       ├── core/             # Database configuration
+│       ├── models/           # SQLModel schemas
+│       └── services/         # Business logic (gap scoring, reporting)
+│
+└── frontend/
+    ├── src/                  # React components
+    ├── package.json          # Node dependencies
+    └── vite.config.js        # Vite configuration
 ```
 
-to initialize the database, and then fill it with mock data:
-```bash
-python seed.py
-```
+## API Documentation
 
-after all that, start the API server:
-```bash
-uvicorn main:app --reload --port 8000
-```
+When running, visit:
+- **Swagger UI**: `/docs`
+- **ReDoc**: `/redoc`
 
-If `python -m venv .venv` fails because a broken environment already exists, delete the old `.venv` folder first and run the commands again.
+## License
 
-## Frontend
-
-Open a **new terminal** and run:
-```bash
-cd star-system/frontend
-npm install
-npm run dev
-```
-
-You should be given a local URL after that (e.g. `http://localhost:5173`).
-
-`star-system/backend/seed.py` creates `star.db` in the same folder and adds mock data. If you want a fresh database, delete `star.db` and run `python seed.py` again.
+MIT
