@@ -2,20 +2,19 @@
 Chat API Routes
 
 Provides AI chatbot endpoint for answering questions about the STAR system data.
-Uses Groq API for fast inference with Llama models.
+Uses Ollama for local LLM inference (http://localhost:11434).
 """
 
 import os
+import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
-import httpx
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-# Groq API configuration
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.3-70b-versatile"  # Fast, capable model
+# Ollama configuration (runs locally by default)
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")  # Default to llama3.2, can use llama3.1, mistral, etc.
 
 
 class ChatRequest(BaseModel):
@@ -148,48 +147,46 @@ When data is missing or unclear:
 @router.post("", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Send a message to the AI chatbot.
+    Send a message to the AI chatbot using Ollama.
 
-    The chatbot has context about the current page data and can answer
-    questions about teachers, regions, training, and gap scores.
+    Requires Ollama to be running locally with a model installed.
+    Run: ollama pull llama3.2  (or your preferred model)
     """
-    if not GROQ_API_KEY:
-        return ChatResponse(
-            response="⚠️ Groq API key not configured. Set the GROQ_API_KEY environment variable on Render."
-        )
-
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                GROQ_URL,
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json"
-                },
+                f"{OLLAMA_URL}/api/chat",
                 json={
-                    "model": GROQ_MODEL,
+                    "model": OLLAMA_MODEL,
                     "messages": [
                         {"role": "system", "content": build_system_prompt(request.context)},
                         {"role": "user", "content": request.message}
                     ],
-                    "max_tokens": 1024,
-                    "temperature": 0.7
+                    "stream": False
                 }
             )
             response.raise_for_status()
             data = response.json()
-            return ChatResponse(response=data["choices"][0]["message"]["content"])
+            return ChatResponse(response=data["message"]["content"])
 
+    except httpx.ConnectError:
+        return ChatResponse(
+            response=f"⚠️ Cannot connect to Ollama at {OLLAMA_URL}.\n\n"
+                     "Make sure Ollama is running:\n"
+                     "  1. Install: https://ollama.ai\n"
+                     "  2. Run: ollama serve\n"
+                     "  3. Pull a model: ollama pull {OLLAMA_MODEL}"
+        )
     except httpx.HTTPStatusError as e:
-        error_msg = "API error"
+        error_msg = "Ollama error"
         try:
             error_data = e.response.json()
             if "error" in error_data:
-                error_msg = error_data["error"].get("message", str(e))
+                error_msg = error_data["error"]
         except:
             pass
-        return ChatResponse(response=f"❌ API Error: {error_msg}")
+        return ChatResponse(response=f"❌ Ollama Error: {error_msg}")
     except httpx.TimeoutException:
-        return ChatResponse(response="⏱️ Request timed out. Please try again.")
+        return ChatResponse(response="⏱️ Request timed out. The model may be loading, try again.")
     except Exception as e:
         return ChatResponse(response=f"❌ An error occurred: {str(e)}")

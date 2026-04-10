@@ -81,7 +81,7 @@ def generate_executive_pdf(regions_analysis: List[Dict[str, Any]], filename: str
     Generates a full PDF report.
     Returns path to the generated PDF file.
     """
-    # Use temp directory for all file operations (works on Render)
+    # Use temp directory for all file operations (works cross-platform)
     temp_dir = tempfile.gettempdir()
 
     pdf = STARReport()

@@ -1,48 +1,124 @@
-# start-a-ton
+# STAR System - Science Teacher Academy for the Regions
 
-So far, this is built to be run locally.
+A data dashboard for analyzing teacher training coverage, gap scores, and intervention priorities across the Philippines. 
 
-## Backend
+This branch is meant to be run locally.
 
-Open a terminal and run the following line by line:
+## Prerequisites
+
+- **Python 3.10+** - for the backend API
+- **Node.js 18+** - for the frontend
+- **Ollama** (optional) - for AI chatbot features
+
+## Quick Start
+
+### 1. Backend Setup
+
+Open a terminal and run:
+
 ```bash
 cd star-system/backend
+
+# Create and activate virtual environment
 python -m venv venv
-venv\Scripts\Activate
-python -m pip install -r requirements.txt
-```
 
-If you are using Command Prompt (`cmd.exe`), use:
-```bash
-venv\Scripts\activate.bat
-```
+# Activate (choose one based on your shell)
+venv\Scripts\activate          # PowerShell
+venv\Scripts\activate.bat      # Command Prompt
+source venv/Scripts/activate  # Git Bash
 
-If you are using Git Bash, use:
-```bash
-source venv/Scripts/activate
-```
+# Install dependencies
+pip install -r requirements.txt
 
-to initialize the database, and then fill it with mock data:
-```bash
+# Initialize database with mock data
 python seed.py
-```
 
-after all that, start the API server:
-```bash
+# Start the API server
 uvicorn main:app --reload --port 8000
 ```
 
-If `python -m venv .venv` fails because a broken environment already exists, delete the old `.venv` folder first and run the commands again.
+The API will be available at `http://localhost:8000`.
 
-## Frontend
+### 2. Frontend Setup
 
 Open a **new terminal** and run:
+
 ```bash
 cd star-system/frontend
 npm install
 npm run dev
 ```
 
-You should be given a local URL after that (e.g. `http://localhost:5173`).
+The app will be available at `http://localhost:5173`.
 
-`star-system/backend/seed.py` creates `star.db` in the same folder and adds mock data. If you want a fresh database, delete `star.db` and run `python seed.py` again.
+### 3. AI Chatbot (Optional)
+
+The chatbot uses Ollama for local LLM inference. To enable it:
+
+```bash
+# Install Ollama from https://ollama.ai
+
+# Pull the model (choose one)
+ollama pull llama3.2      # Recommended, fast
+ollama pull llama3.1      # Larger, more capable
+
+# Start Ollama server
+ollama serve
+```
+
+**Environment variables (optional):**
+```bash
+OLLAMA_URL=http://localhost:11434  # Default
+OLLAMA_MODEL=llama3.2               # Default model
+```
+
+If Ollama is not running, the chatbot will show a helpful error message with setup instructions.
+
+## Project Structure
+
+```
+star-system/
+├── backend/
+│   ├── main.py              # FastAPI entry point
+│   ├── seed.py              # Database seeding script
+│   ├── requirements.txt     # Python dependencies
+│   └── app/
+│       ├── api/             # API route handlers
+│       ├── core/            # Database config
+│       ├── models/          # SQLModel schemas
+│       └── services/        # Business logic
+│
+└── frontend/
+    ├── src/                 # React components
+    ├── package.json         # Node dependencies
+    └── vite.config.js       # Vite config (proxies /api to backend)
+```
+
+## Reset Database
+
+To start fresh:
+
+```bash
+cd star-system/backend
+rm star.db                  # Delete database
+python seed.py              # Re-seed with mock data
+```
+
+## API Documentation
+
+With the backend running, visit:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+## Troubleshooting
+
+**`python -m venv venv` fails**
+- Delete the existing `venv` folder and try again
+
+**Frontend can't connect to backend**
+- Make sure the backend is running on port 8000
+- Check that `vite.config.js` proxies `/api` correctly
+
+**Chatbot shows connection error**
+- Ensure Ollama is running: `ollama serve`
+- Verify model is installed: `ollama list`
