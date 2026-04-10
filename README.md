@@ -1,4 +1,4 @@
-# STAR System - Science Teacher Academy for the Regions
+# Team QCeb - START a Ton! Data & AI Innovation Challenge Submission
 
 A data system that analyzes teacher training coverage, gap scores, and intervention priorities across the Philippines.
 
