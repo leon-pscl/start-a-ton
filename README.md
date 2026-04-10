@@ -58,7 +58,7 @@ The chatbot uses Ollama for local LLM inference. To enable it:
 ```bash
 # Install Ollama from https://ollama.ai
 
-In a new terminal:
+# In a new terminal:
 # Pull the model (choose one)
 ollama pull llama3.2      # Recommended, fast
 ollama pull llama3.1      # Larger, more capable
