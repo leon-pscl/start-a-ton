@@ -1,0 +1,6 @@
+Q: Which regions need the most intervention?
+A: The regions that need the most intervention are the ones that have the highest gap scores. These regions are Region IV-B, Region IX, and Region VIII among others.
+---------
+Q: What interventions can I implement for those regions?
+A: Each region has different needs. Based on the data, Region IV-B has the highest gap score as it is severely underserved. Training for supplementary modules hasn't reached teachers in the area, and instructional workload is quite heavy. As for Region IX, most of the teachers have difficulty reaching training areas, so training coverage is also scarce, and trained teachers, if present at all, were last trained years ago. For other areas like NCR, instructional workload is the main problem, as there are few teachers for so many students
+--------

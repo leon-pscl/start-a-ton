@@ -3,10 +3,14 @@ Chat API Routes
 
 Provides AI chatbot endpoint for answering questions about the STAR system data.
 Uses Ollama for local LLM inference (http://localhost:11434).
+
+Demo Mode: Set DEMO_MODE=true to use pre-determined responses with fuzzy matching.
 """
 
 import os
+import re
 import httpx
+from difflib import SequenceMatcher
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -14,7 +18,44 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 # Ollama configuration (runs locally by default)
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")  # Default to llama3.2, can use llama3.1, mistral, etc.
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+
+# Demo mode configuration
+DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
+
+# Pre-determined Q&A pairs for demo mode
+DEMO_RESPONSES = {
+    "which regions need the most intervention": "The regions that need the most intervention are the ones that have the highest gap scores. These regions are **Region IV-B**, **Region IX**, and **Region VIII** among others.",
+
+    "what interventions can i implement for those regions": "Each region has different needs. Based on the data:\n\n- **Region IV-B** has the highest gap score as it is severely underserved. Training for supplementary modules hasn't reached teachers in the area, and instructional workload is quite heavy.\n\n- **Region IX** - most teachers have difficulty reaching training areas, so training coverage is also scarce. Trained teachers, if present at all, were last trained years ago.\n\n- For areas like **NCR**, instructional workload is the main problem, as there are few teachers for so many students.",
+
+    "what is the overall training coverage": "The overall training coverage across all regions is approximately **68%**. This means about two-thirds of teachers have received some form of training through the STAR program. The remaining 32% represents teachers who have not yet been reached by training initiatives, with the highest gaps concentrated in **Region IV-B**, **Region IX**, and **Region VIII**.",
+
+    "what is a gap score": "A **gap score** is a composite metric that measures the training and support deficit in a region or school. It takes into account:\n\n- **Training coverage** - percentage of teachers who have received training\n- **Out-of-field teaching** - teachers teaching subjects outside their specialization\n- **Instructional workload** - student-to-teacher ratios\n\nHigher gap scores indicate areas needing urgent intervention. Scores are categorized as **Low**, **Moderate**, or **Critical**.",
+
+    "how many schools are at critical priority": "Based on current data, there are **23 schools** classified as **Critical priority**. These schools have the highest gap scores and lowest training coverage. They should be prioritized for immediate intervention programs. The top critical schools are primarily located in **Region IV-B** and **Region IX**.",
+
+    "what subjects have the most teacher shortages": "The subjects with the most significant teacher shortages are:\n\n- **Physics** - highest demand, particularly in rural regions\n- **Chemistry** - second highest shortage area\n- **Earth Science** - growing need as curriculum expands\n- **Biology** - moderate shortages across most regions\n\nThese shortages are most acute in **Region IV-B** and **Region IX** where specialized science teachers are scarce.",
+
+    "what is the competency level distribution": "The competency level distribution of trained teachers is:\n\n- **High competency**: ~35% - can lead training sessions\n- **Medium competency**: ~45% - proficient in their specialization\n- **Low competency**: ~20% - recently trained, developing skills\n\nRegions with lower training coverage tend to have fewer high-competency teachers available to mentor others.",
+
+    "which regions have the best training coverage": "The regions with the best training coverage are:\n\n- **Region III (Central Luzon)** - 82% coverage\n- **Region IV-A (CALABARZON)** - 78% coverage\n- **Region VII (Central Visayas)** - 75% coverage\n\nThese regions have well-established training centers and better accessibility for teachers. They can serve as models for improving coverage in underserved regions.",
+
+    "how can i improve training in remote regions": "For remote regions with low coverage, consider these strategies:\n\n- **Mobile training units** - bring training directly to schools\n- **Online modules** - for teachers who cannot travel\n- **Cluster training** - train teachers from nearby schools together\n- **Peer mentoring** - leverage high-competency teachers to coach others\n- **Partnerships** - collaborate with local universities for resources\n\n**Region IX** would benefit most from mobile and online approaches due to accessibility challenges."
+}
+
+# Keywords for fuzzy matching (maps user input to demo response keys)
+DEMO_KEYWORDS = {
+    "which regions need the most intervention": ["region", "need", "intervention", "highest", "gap", "priority", "which", "most"],
+    "what interventions can i implement for those regions": ["intervention", "implement", "region", "training", "help", "what", "how", "recommend", "suggest", "solutions"],
+    "what is the overall training coverage": ["overall", "training", "coverage", "percentage", "total", "average", "how many", "trained"],
+    "what is a gap score": ["gap", "score", "what", "mean", "definition", "explain", "metric"],
+    "how many schools are at critical priority": ["school", "critical", "priority", "how many", "count", "number", "at risk"],
+    "what subjects have the most teacher shortages": ["subject", "shortage", "teacher", "specialization", "most", "which", "need", "physics", "chemistry", "science"],
+    "what is the competency level distribution": ["competency", "level", "distribution", "skill", "proficiency", "percentage", "high", "medium", "low"],
+    "which regions have the best training coverage": ["best", "highest", "region", "training", "coverage", "good", "top", "performing"],
+    "how can i improve training in remote regions": ["improve", "remote", "training", "region", "strategies", "how", "solutions", "recommendations", "increase", "better"]
+}
 
 
 class ChatRequest(BaseModel):
@@ -144,14 +185,58 @@ When data is missing or unclear:
     return base_prompt + "\n".join(context_parts)
 
 
+def fuzzy_match_demo_response(user_message: str) -> str | None:
+    """
+    Find the best matching demo response using keyword overlap and sequence matching.
+    Returns the demo response if a good match is found, None otherwise.
+    """
+    user_message_lower = user_message.lower().strip()
+    user_words = set(re.findall(r'\b\w+\b', user_message_lower))
+
+    best_match = None
+    best_score = 0
+    threshold = 0.25  # Lower threshold = more permissive matching (was 0.35)
+
+    for demo_key, keywords in DEMO_KEYWORDS.items():
+        # Method 1: Keyword overlap score
+        keyword_set = set(keywords)
+        overlap = len(user_words & keyword_set)
+        keyword_score = overlap / len(keyword_set) if keyword_set else 0
+
+        # Method 2: Sequence similarity (handles typos and variations)
+        seq_score = SequenceMatcher(None, user_message_lower, demo_key).ratio()
+
+        # Combined score (weighted)
+        combined_score = (keyword_score * 0.6) + (seq_score * 0.4)
+
+        if combined_score > best_score and combined_score > threshold:
+            best_score = combined_score
+            best_match = demo_key
+
+    if best_match:
+        return DEMO_RESPONSES[best_match]
+    return None
+
+
 @router.post("", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Send a message to the AI chatbot using Ollama.
+    Send a message to the AI chatbot.
 
-    Requires Ollama to be running locally with a model installed.
-    Run: ollama pull llama3.2  (or your preferred model)
+    Demo Mode (DEMO_MODE=true): Uses pre-determined responses with fuzzy matching.
+    Normal Mode: Uses Ollama for local LLM inference.
     """
+    # Demo mode: use pre-determined responses
+    if DEMO_MODE:
+        demo_response = fuzzy_match_demo_response(request.message)
+        if demo_response:
+            return ChatResponse(response=demo_response)
+        return ChatResponse(
+            response="I don't have a pre-determined response for that question in demo mode. "
+                     "Try asking about regions that need intervention or recommended interventions."
+        )
+
+    # Normal mode: use Ollama
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
