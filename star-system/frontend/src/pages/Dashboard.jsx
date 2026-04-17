@@ -1,15 +1,10 @@
 /**
- * Dashboard Page Component
+ * Dashboard Page Component (Command Center)
  *
- * The main landing page showing system-wide statistics and overview.
- * Displays:
- * - Summary cards (total teachers, coverage, high-gap regions, training records)
- * - Interactive map of the Philippines (compact view)
- * - Bar chart of gap scores by region
- * - Priority regions list (high-gap areas)
- * - STAR modules list
- *
- * Data is fetched from the analytics API on mount.
+ * Redesigned with data hierarchy for Program Officers:
+ * - Level 1: Critical alerts and priority actions (what to act on NOW)
+ * - Level 2: System health metrics (compact)
+ * - Level 3: Detailed analytics (collapsible, progressive disclosure)
  */
 
 import { useEffect, useState } from 'react'
@@ -19,20 +14,22 @@ import { getSummary, getRegions, exportCSV, exportPDF } from '../lib/api'
 import { GAP_COLORS } from '../lib/constants'
 import { StatCard, GapBar, Spinner, PageHeader } from '../components/shared'
 import PhilippinesMap from '../components/shared/PhilippinesMap'
+import { getCurrentUser } from '../lib/auth'
 
 // ---------------------------------------------------------------------------
 // Main Dashboard Component
 // ---------------------------------------------------------------------------
 
 export default function Dashboard() {
-  // State for API data
-  const [summary, setSummary] = useState(null)    // Summary statistics
-  const [regions, setRegions] = useState([])       // Regional gap analysis
-  const [loading, setLoading] = useState(true)     // Loading state
+  const user = getCurrentUser()
+  const [summary, setSummary] = useState(null)
+  const [regions, setRegions] = useState([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [selectedAlertRegion, setSelectedAlertRegion] = useState(null)
   const navigate = useNavigate()
 
-  // Fetch data on mount
   useEffect(() => {
     Promise.all([getSummary(), getRegions()])
       .then(([s, r]) => { setSummary(s); setRegions(r) })
@@ -40,12 +37,11 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Show loading spinner while fetching
   if (loading) return <Spinner />
   if (error || !summary) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
-        <PageHeader title="System overview" subtitle="Unable to load analytics right now" />
+        <PageHeader title="Command Center" subtitle="Unable to load analytics right now" />
         <div className="card border-l-4 border-red-500">
           <p className="text-sm text-slate-700">{error || 'Dashboard data is unavailable.'}</p>
           <p className="text-xs text-slate-500 mt-2">Check that backend is running on port 8000, then refresh.</p>
@@ -54,23 +50,30 @@ export default function Dashboard() {
     )
   }
 
-  // Prepare data for display
-  // Rank by Impact Score (Impact = Gap * Students Affected)
+  // Calculate critical alerts (regions exceeding 70% WPI)
+  const criticalRegions = regions.filter(r => r.gap_score >= 0.70)
+  const highGapRegions = regions.filter(r => r.gap_level === 'High')
+
+  // Priority interventions ranked by impact score
   const interventions = summary.high_impact_interventions ?? []
+
+  // Chart data (top 12 by gap score)
   const chartData = regions
-    .sort((a, b) => b.gap_score - a.gap_score)  // Sort by gap score (highest first)
-    .slice(0, 12)                                // Show top 12
+    .sort((a, b) => b.gap_score - a.gap_score)
+    .slice(0, 12)
     .map(r => ({
-      name: r.region.replace('Region ', 'R'),   // Abbreviate for chart
-      score: Math.round(r.gap_score * 100),      // Convert to percentage
+      name: r.region.replace('Region ', 'R'),
+      score: Math.round(r.gap_score * 100),
       level: r.gap_level,
     }))
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <PageHeader
-        title="System overview"
-        subtitle="STAR capacity-building data across all regions"
+        title="Command Center"
+        subtitle={user?.role === 'regional_coordinator'
+          ? `Monitoring: ${user.region}`
+          : 'STAR capacity-building data across all regions'}
         actions={
           <div className="flex gap-2">
             <button onClick={() => exportPDF()} className="btn-primary text-xs flex items-center gap-1.5 px-4 shadow-sm">
@@ -84,10 +87,130 @@ export default function Dashboard() {
         }
       />
 
-      {/* ----------------------------------------------------------------------- */}
-      {/* Summary Statistics Cards                                                */}
-      {/* ----------------------------------------------------------------------- */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* ======================================================================= */}
+      {/* LEVEL 1: CRITICAL ALERTS (what needs immediate attention)                */}
+      {/* ======================================================================= */}
+      {criticalRegions.length > 0 && (
+        <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.334.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-red-800 mb-1">
+                Critical Alert: {criticalRegions.length} region{criticalRegions.length !== 1 ? 's' : ''} exceed 70% gap score
+              </h3>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {criticalRegions.map(r => (
+                  <button
+                    key={r.region}
+                    onClick={() => {
+                      setSelectedAlertRegion(r.region)
+                      navigate(`/regions?selected=${encodeURIComponent(r.region)}`)
+                    }}
+                    className="text-xs bg-red-100 text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-200 transition-colors font-medium"
+                  >
+                    {r.region} — {Math.round(r.gap_score * 100)}% gap
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-red-600 mt-2">
+                Click a region to view detailed breakdown and recommended interventions
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* LEVEL 1: PRIORITY ACTIONS (top interventions to act on)                  */}
+      {/* ======================================================================= */}
+      <div className="card border-l-4 border-indigo-500 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-800">Priority Actions</h2>
+            <p className="text-xs text-slate-500 mt-0.5">Top interventions ranked by potential student impact</p>
+          </div>
+          <button
+            onClick={() => navigate('/interventions')}
+            className="text-xs text-indigo-600 hover:underline font-medium"
+          >
+            View all interventions →
+          </button>
+        </div>
+
+        {interventions.length === 0 ? (
+          <p className="text-sm text-slate-400 py-4 text-center">No priority interventions identified</p>
+        ) : (
+          <div className="space-y-3">
+            {interventions.slice(0, 5).map((item, index) => (
+              <div
+                key={`${item.school_name}-${index}`}
+                className="group cursor-pointer p-3 rounded-lg border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50 transition-all"
+                onClick={() => navigate(`/regions?selected=${encodeURIComponent(item.region)}`)}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-bold">
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-700">{item.school_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                      Impact: {item.priority_score?.toLocaleString?.() ?? item.priority_score}
+                    </span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                      item.priority_level === 'Critical'
+                        ? 'bg-red-100 text-red-700'
+                        : item.priority_level === 'Moderate'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {item.priority_level}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
+                  <span>{item.region}</span>
+                  <span>·</span>
+                  <span><span className="font-semibold">{item.total_teachers}</span> teachers</span>
+                  <span>·</span>
+                  <span><span className="font-semibold">{item.training_coverage_pct}%</span> coverage</span>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-600">
+                      <span className="font-medium text-slate-700">Issue: </span>
+                      {item.reason}
+                    </p>
+                    <p className="text-xs text-indigo-700 mt-1">
+                      <span className="font-medium">Action: </span>
+                      {item.recommendations?.[0] || 'Review regional data'}
+                    </p>
+                  </div>
+                  <div className="w-32 shrink-0">
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                        style={{ width: `${Math.min(100, (item.priority_score / (interventions[0]?.priority_score || 1)) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 text-right mt-0.5">Relative priority</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ======================================================================= */}
+      {/* LEVEL 2: SYSTEM HEALTH (compact metrics)                                 */}
+      {/* ======================================================================= */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
           label="Total teachers"
           value={summary.total_teachers.toLocaleString()}
@@ -100,165 +223,117 @@ export default function Dashboard() {
           accent={summary.training_coverage_pct >= 60 ? 'text-green-600' : 'text-amber-600'}
         />
         <StatCard
-          label="High-gap regions"
-          value={summary.high_gap_regions}
-          sub="Priority for deployment"
-          accent="text-red-600"
-        />
-        <StatCard
-          label="Training records"
-          value={summary.total_training_records.toLocaleString()}
-          sub="STAR module completions"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label="Competency low"
-          value={summary.competency_distribution?.low ?? 0}
-          sub="Teachers needing intervention"
-          accent="text-red-600"
-        />
-        <StatCard
-          label="Competency medium"
-          value={summary.competency_distribution?.medium ?? 0}
-          sub="Teachers on watch"
-          accent="text-amber-600"
-        />
-        <StatCard
-          label="Competency high"
-          value={summary.competency_distribution?.high ?? 0}
-          sub="Ready for advanced modules"
-          accent="text-green-600"
+          label="Critical regions"
+          value={criticalRegions.length}
+          sub="Require immediate action"
+          accent={criticalRegions.length > 0 ? 'text-red-600' : 'text-green-600'}
         />
         <StatCard
           label="At-risk schools"
           value={summary.at_risk_schools ?? 0}
-          sub={`Out-of-field ${summary.out_of_field_pct ?? 0}%`}
+          sub={`System OOF: ${summary.out_of_field_pct ?? 0}%`}
           accent="text-indigo-700"
         />
       </div>
 
-      {/* ----------------------------------------------------------------------- */}
-      {/* Map and Chart Row                                                       */}
-      {/* ----------------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-        {/* Compact map - navigates to Regions page on click */}
-        <div className="card flex flex-col items-center">
-          <div className="flex items-center justify-between w-full mb-3">
-            <h2 className="text-sm font-semibold text-slate-700">Regional overview</h2>
-            <button
-              onClick={() => navigate('/regions')}
-              className="text-xs text-star-600 hover:underline"
-            >
-              View full map →
-            </button>
+      {/* ======================================================================= */}
+      {/* LEVEL 3: ANALYTICS (collapsible detailed view)                           */}
+      {/* ======================================================================= */}
+      <div className="mb-6">
+        <button
+          onClick={() => setShowAnalytics(!showAnalytics)}
+          className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showAnalytics ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-semibold text-slate-700">Regional Analytics</p>
+              <p className="text-xs text-slate-400">Gap scores and geographic distribution</p>
+            </div>
           </div>
-          <PhilippinesMap
-            regions={regions}
-            compact={true}
-            onSelect={(region) => navigate(`/regions?selected=${encodeURIComponent(region)}`)}
-          />
-        </div>
+          <svg
+            className={`w-5 h-5 text-slate-400 transition-transform ${showAnalytics ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-        {/* Gap score bar chart */}
-        <div className="card lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-700 mb-4">
-            Gap scores by region
-          </h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
-              <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`}
-                tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={52}
-                tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip formatter={v => [`${v}%`, 'Gap score']} />
-              <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={14}>
-                {/* Color bars by gap level */}
-                {chartData.map((entry, i) => (
-                  <Cell key={i} fill={GAP_COLORS[entry.level]?.hex ?? '#94a3b8'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {showAnalytics && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
+            {/* Map */}
+            <div className="card flex flex-col items-center">
+              <div className="flex items-center justify-between w-full mb-3">
+                <h3 className="text-sm font-semibold text-slate-700">Regional overview</h3>
+                <button
+                  onClick={() => navigate('/regions')}
+                  className="text-xs text-star-600 hover:underline"
+                >
+                  Full map →
+                </button>
+              </div>
+              <PhilippinesMap
+                regions={regions}
+                compact={true}
+                onSelect={(region) => navigate(`/regions?selected=${encodeURIComponent(region)}`)}
+              />
+            </div>
+
+            {/* Bar chart */}
+            <div className="lg:col-span-2 card">
+              <h3 className="text-sm font-semibold text-slate-700 mb-4">Gap scores by region</h3>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`}
+                    tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis type="category" dataKey="name" width={52}
+                    tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={v => [`${v}%`, 'Gap score']} />
+                  <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={14}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={GAP_COLORS[entry.level]?.hex ?? '#94a3b8'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ----------------------------------------------------------------------- */}
-      {/* Priority Regions and STAR Modules                                      */}
-      {/* ----------------------------------------------------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Priority regions - those with high gap scores */}
-        <div className="card border-l-4 border-indigo-500">
-          <h2 className="text-sm font-semibold text-slate-700 mb-1">
-            High-impact interventions
-          </h2>
-          <p className="text-xs text-indigo-500 font-medium mb-4 flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            Priority by potential student reach
-          </p>
-          {interventions.length === 0 ? (
-            <p className="text-sm text-slate-400 py-8 text-center">No impact data available</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {interventions.slice(0, 5).map((item, index) => (
-                <div
-                  key={`${item.school_name}-${index}`}
-                  className="group cursor-pointer"
-                  onClick={() => navigate(`/regions?selected=${encodeURIComponent(item.region)}`)}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-slate-700">{item.school_name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-50 px-1.5 py-0.5 rounded">
-                        Impact: {item.priority_score?.toLocaleString?.() ?? item.priority_score}
-                      </span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                        item.priority_level === 'Critical'
-                          ? 'bg-red-100 text-red-700'
-                          : item.priority_level === 'Moderate'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        {item.priority_level}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-[11px] text-slate-500">
-                      {item.region} · <span className="font-semibold">{item.total_teachers}</span> teachers · <span className="font-semibold">{item.training_coverage_pct}%</span> coverage
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    {item.reason}
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    {item.recommendations?.[0]}
-                  </p>
-                  <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-700" 
-                      style={{ width: `${Math.min(100, (item.priority_score / ((interventions[0]?.priority_score) || 1)) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* STAR modules list */}
+      {/* ======================================================================= */}
+      {/* QUICK STATS: COMPETENCY DISTRIBUTION                                     */}
+      {/* ======================================================================= */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">
-          <h2 className="text-sm font-semibold text-slate-700 mb-1">STAR modules</h2>
-          <p className="text-xs text-slate-400 mb-4">7 capacity-building modules</p>
-          <div className="flex flex-wrap gap-2">
-            {(summary.star_modules ?? []).map(m => (
-              <span key={m} className="text-xs bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg">
-                {m}
-              </span>
-            ))}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <p className="text-xs font-medium text-slate-500">Competency Low</p>
           </div>
+          <p className="text-2xl font-bold text-slate-800">{summary.competency_distribution?.low ?? 0}</p>
+          <p className="text-xs text-slate-400 mt-1">Teachers needing intervention</p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-amber-500" />
+            <p className="text-xs font-medium text-slate-500">Competency Medium</p>
+          </div>
+          <p className="text-2xl font-bold text-slate-800">{summary.competency_distribution?.medium ?? 0}</p>
+          <p className="text-xs text-slate-400 mt-1">Teachers on watch</p>
+        </div>
+        <div className="card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <p className="text-xs font-medium text-slate-500">Competency High</p>
+          </div>
+          <p className="text-2xl font-bold text-slate-800">{summary.competency_distribution?.high ?? 0}</p>
+          <p className="text-xs text-slate-400 mt-1">Ready for advanced modules</p>
         </div>
       </div>
     </div>

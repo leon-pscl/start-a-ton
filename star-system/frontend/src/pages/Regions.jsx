@@ -192,6 +192,9 @@ export default function RegionsPage() {
   const [loading, setLoading] = useState(true)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [sortBy, setSortBy] = useState('gap_score')
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareSelection, setCompareSelection] = useState([])
+  const [showComparison, setShowComparison] = useState(false)
 
   useEffect(() => {
     Promise.all([getRegions(), getProvinces(), getCities()])
@@ -207,6 +210,26 @@ export default function RegionsPage() {
     setTimeout(() => {
       document.getElementById('region-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }, 100)
+  }
+
+  const toggleCompareSelection = (region) => {
+    if (!compareMode) return
+    setCompareSelection(prev => {
+      if (prev.includes(region)) {
+        return prev.filter(r => r !== region)
+      }
+      if (prev.length >= 4) {
+        return prev // Max 4 regions
+      }
+      return [...prev, region]
+    })
+  }
+
+  const showSelectedComparison = () => {
+    if (compareSelection.length >= 2) {
+      setShowComparison(true)
+      setCompareMode(false)
+    }
   }
 
   const sorted = [...regions].sort((a, b) => {
@@ -225,6 +248,28 @@ export default function RegionsPage() {
         subtitle="Zoom in to explore regions, provinces, and cities. Click a region to inspect."
         actions={
           <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setCompareMode(!compareMode)
+                setCompareSelection([])
+                setShowComparison(false)
+              }}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                compareMode
+                  ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              {compareMode ? '✓ Selecting...' : 'Compare regions'}
+            </button>
+            {compareSelection.length >= 2 && (
+              <button
+                onClick={showSelectedComparison}
+                className="btn-primary text-xs"
+              >
+                Compare {compareSelection.length} regions
+              </button>
+            )}
             <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="input text-xs w-36">
               <option value="gap_score">Sort: gap score</option>
               <option value="total">Sort: teacher count</option>
@@ -249,6 +294,119 @@ export default function RegionsPage() {
         </div>
         <PhilippinesMap regions={regions} provinces={provinces} cities={cities} selected={selected} onSelect={selectRegion} compact={false} />
       </div>
+
+      {/* Comparison View */}
+      {showComparison && compareSelection.length >= 2 && (
+        <div className="card mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Regional Comparison</h2>
+              <p className="text-xs text-slate-500 mt-0.5">Side-by-side analysis of {compareSelection.length} selected regions</p>
+            </div>
+            <button
+              onClick={() => {
+                setShowComparison(false)
+                setCompareSelection([])
+              }}
+              className="text-xs text-slate-400 hover:text-slate-600"
+            >
+              Dismiss ×
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="text-left px-3 py-2 font-semibold text-slate-500 min-w-32 sticky left-0 bg-slate-50">Metric</th>
+                  {compareSelection.map(regionName => {
+                    const r = regions.find(reg => reg.region === regionName)
+                    return (
+                      <th key={regionName} className="text-center px-2 py-2 font-semibold text-slate-700 min-w-28">
+                        <div className="font-bold">{regionName}</div>
+                        <div className="text-slate-400 font-normal">{r?.total_teachers ?? 0} teachers</div>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-slate-100">
+                  <td className="px-3 py-2 text-slate-600 font-medium sticky left-0 bg-white">Gap Score</td>
+                  {compareSelection.map(regionName => {
+                    const r = regions.find(reg => reg.region === regionName)
+                    const score = Math.round((r?.gap_score ?? 0) * 100)
+                    return (
+                      <td key={regionName} className="px-2 py-2 text-center">
+                        <span className={`font-bold ${score >= 70 ? 'text-red-600' : score >= 40 ? 'text-amber-600' : 'text-green-600'}`}>
+                          {score}%
+                        </span>
+                      </td>
+                    )
+                  })}
+                </tr>
+                <tr className="border-b border-slate-100">
+                  <td className="px-3 py-2 text-slate-600 font-medium sticky left-0 bg-white">Training Coverage</td>
+                  {compareSelection.map(regionName => {
+                    const r = regions.find(reg => reg.region === regionName)
+                    const coverage = r?.total_teachers > 0 ? Math.round((r.trained_count / r.total_teachers) * 100) : 0
+                    return (
+                      <td key={regionName} className="px-2 py-2 text-center text-slate-700">
+                        {coverage}%
+                      </td>
+                    )
+                  })}
+                </tr>
+                <tr className="border-b border-slate-100">
+                  <td className="px-3 py-2 text-slate-600 font-medium sticky left-0 bg-white">Student-Teacher Ratio</td>
+                  {compareSelection.map(regionName => {
+                    const r = regions.find(reg => reg.region === regionName)
+                    return (
+                      <td key={regionName} className="px-2 py-2 text-center text-slate-700">
+                        {r?.avg_student_ratio ?? 0}:1
+                      </td>
+                    )
+                  })}
+                </tr>
+                <tr className="border-b border-slate-100">
+                  <td className="px-3 py-2 text-slate-600 font-medium sticky left-0 bg-white">Gap Level</td>
+                  {compareSelection.map(regionName => {
+                    const r = regions.find(reg => reg.region === regionName)
+                    return (
+                      <td key={regionName} className="px-2 py-2 text-center">
+                        <GapBadge level={r?.gap_level ?? 'Low'} />
+                      </td>
+                    )
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {detail && compareSelection.includes(detail.region) && (
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <p className="text-xs font-semibold text-slate-500 mb-2">Why {detail.region} has this score:</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="bg-slate-50 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-400">Training gap</p>
+                  <p className="text-xs font-bold text-slate-700">{Math.round((detail.components?.coverage_score ?? 0) * 100)}%</p>
+                  <p className="text-[9px] text-slate-400">30% weight</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-400">Mismatch</p>
+                  <p className="text-xs font-bold text-slate-700">{Math.round((detail.components?.mismatch_score ?? 0) * 100)}%</p>
+                  <p className="text-[9px] text-slate-400">25% weight</p>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-2">
+                  <p className="text-[10px] text-slate-400">Workload</p>
+                  <p className="text-xs font-bold text-slate-700">{Math.round((detail.components?.workload_score ?? 0) * 100)}%</p>
+                  <p className="text-[9px] text-slate-400">20% weight</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <SubjectShortageHeatmap regions={regions} />
 
@@ -418,6 +576,9 @@ export default function RegionsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
+              {compareMode && (
+                <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 w-12">Select</th>
+              )}
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500">Region</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500">Teachers</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500">Trained</th>
@@ -427,22 +588,57 @@ export default function RegionsPage() {
             </tr>
           </thead>
           <tbody>
-            {sorted.map(r => (
-              <tr key={r.region} onClick={() => selectRegion(r.region)} className={`border-b border-slate-50 cursor-pointer transition-colors ${selected === r.region ? 'bg-star-50' : 'hover:bg-slate-50'}`}>
-                <td className="px-4 py-3 font-medium text-slate-700">{r.region}</td>
-                <td className="px-4 py-3 text-right text-slate-500">{r.total_teachers}</td>
-                <td className="px-4 py-3 text-right text-slate-500">
-                  {r.trained_count}
-                  <span className="text-slate-300 ml-1">({r.total_teachers > 0 ? Math.round((r.trained_count / r.total_teachers) * 100) : 0}%)</span>
-                </td>
-                <td className="px-4 py-3 text-right text-slate-500 font-medium whitespace-nowrap">{r.avg_student_ratio}:1</td>
-                <td className="px-4 py-3 w-40"><GapBar score={r.gap_score} /></td>
-                <td className="px-4 py-3 text-center"><GapBadge level={r.gap_level} /></td>
-              </tr>
-            ))}
+            {sorted.map(r => {
+              const isSelected = compareSelection.includes(r.region)
+              const canSelect = !isSelected && compareSelection.length >= 4
+
+              return (
+                <tr
+                  key={r.region}
+                  onClick={() => compareMode ? toggleCompareSelection(r.region) : selectRegion(r.region)}
+                  className={`border-b border-slate-50 transition-colors ${
+                    compareMode
+                      ? isSelected ? 'bg-indigo-50' : canSelect ? 'cursor-pointer hover:bg-slate-50' : 'cursor-not-allowed opacity-50'
+                      : selected === r.region ? 'bg-star-50' : 'cursor-pointer hover:bg-slate-50'
+                  }`}
+                >
+                  {compareMode && (
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleCompareSelection(r.region)}
+                        disabled={canSelect && !isSelected}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                      />
+                    </td>
+                  )}
+                  <td className="px-4 py-3 font-medium text-slate-700">{r.region}</td>
+                  <td className="px-4 py-3 text-right text-slate-500">{r.total_teachers}</td>
+                  <td className="px-4 py-3 text-right text-slate-500">
+                    {r.trained_count}
+                    <span className="text-slate-300 ml-1">({r.total_teachers > 0 ? Math.round((r.trained_count / r.total_teachers) * 100) : 0}%)</span>
+                  </td>
+                  <td className="px-4 py-3 text-right text-slate-500 font-medium whitespace-nowrap">{r.avg_student_ratio}:1</td>
+                  <td className="px-4 py-3 w-40"><GapBar score={r.gap_score} /></td>
+                  <td className="px-4 py-3 text-center"><GapBadge level={r.gap_level} /></td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
+
+      {compareMode && compareSelection.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-3 rounded-lg shadow-lg z-50">
+          <p className="text-sm font-medium">
+            {compareSelection.length} region{compareSelection.length !== 1 ? 's' : ''} selected
+            {compareSelection.length >= 2 && (
+              <span className="ml-3 text-xs text-slate-300">Click "Compare {compareSelection.length} regions" above</span>
+            )}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

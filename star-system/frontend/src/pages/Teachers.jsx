@@ -7,13 +7,15 @@
  * - Filter by region, subject, and training status
  * - Pagination (50 records per page)
  * - Visual indicators for training status and data source
+ * - Teacher growth view for personal dashboard
  *
  * Data is fetched from the teachers API endpoint.
  */
 
 import { useEffect, useState } from 'react'
 import { getTeachers, getTeacher } from '../lib/api'
-import { REGIONS, SUBJECTS } from '../lib/constants'
+import { REGIONS, SUBJECTS, STAR_MODULES } from '../lib/constants'
+import { getCurrentUser } from '../lib/auth'
 import { Spinner, EmptyState, PageHeader, Select, HoverTags } from '../components/shared'
 
 // Number of records per page
@@ -23,8 +25,183 @@ const PAGE_SIZE = 50
 // Main Teachers Component
 // ---------------------------------------------------------------------------
 
+/**
+ * Teacher Growth Dashboard - Personal view for teachers
+ */
+function TeacherGrowthDashboard({ teacherId }) {
+  const user = getCurrentUser()
+  const [teacher, setTeacher] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (teacherId) {
+      getTeacher(teacherId)
+        .then(setTeacher)
+        .finally(() => setLoading(false))
+    }
+  }, [teacherId])
+
+  if (loading) return <Spinner />
+  if (!teacher) return <EmptyState message="Teacher profile not found" />
+
+  const competencyScore = teacher.competency_score ?? 0
+  const competencyLevel = competencyScore >= 75 ? 'Proficient' : competencyScore >= 50 ? 'Developing' : 'Needs Support'
+  const levelColor = competencyScore >= 75 ? 'text-green-600' : competencyScore >= 50 ? 'text-amber-600' : 'text-red-600'
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      <PageHeader
+        title="My Growth Dashboard"
+        subtitle="Track your professional development and identify next steps"
+      />
+
+      {/* Competency Overview */}
+      <div className="card mb-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-display font-bold text-slate-800">{teacher.full_name}</h2>
+            <p className="text-sm text-slate-500">{teacher.school_name} · {teacher.region}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-slate-400 mb-0.5">Overall Competency</p>
+            <p className={`text-3xl font-bold ${levelColor}`}>{competencyScore}</p>
+            <p className="text-xs text-slate-500">{competencyLevel}</p>
+          </div>
+        </div>
+
+        {/* Competency Progress Bar */}
+        <div className="mb-4">
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-slate-500">Progress to Proficient (75)</span>
+            <span className="text-slate-700 font-medium">{Math.min(100, Math.round((competencyScore / 75) * 100))}%</span>
+          </div>
+          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-500 ${competencyScore >= 75 ? 'bg-green-500' : competencyScore >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+              style={{ width: `${Math.min(100, (competencyScore / 75) * 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Subject Breakdown */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SubjectScoreCard label="Math" score={teacher.math_competency ?? 0} />
+          <SubjectScoreCard label="Science" score={teacher.science_competency ?? 0} />
+          <SubjectScoreCard label="Language" score={teacher.language_competency ?? 0} />
+          <SubjectScoreCard label="Other" score={teacher.other_competency ?? 0} />
+        </div>
+      </div>
+
+      {/* Growth Path */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Current State */}
+        <div className="card border-l-4 border-slate-400">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Current State</h3>
+          <ul className="space-y-2">
+            <li className="text-xs text-slate-600 flex items-start gap-2">
+              <span className="text-slate-400 mt-0.5">•</span>
+              <span><span className="font-medium">Specialization:</span> {teacher.primary_specialization || 'Not specified'}</span>
+            </li>
+            <li className="text-xs text-slate-600 flex items-start gap-2">
+              <span className="text-slate-400 mt-0.5">•</span>
+              <span><span className="font-medium">Teaching:</span> {(teacher.subjects_currently_teaching ?? []).join(', ') || 'Not specified'}</span>
+            </li>
+            <li className="text-xs text-slate-600 flex items-start gap-2">
+              <span className="text-slate-400 mt-0.5">•</span>
+              <span><span className="font-medium">Last training:</span> {teacher.last_training_year || 'No record'}</span>
+            </li>
+            {teacher.is_out_of_field && (
+              <li className="text-xs text-red-600 flex items-start gap-2">
+                <span className="text-red-400 mt-0.5">⚠</span>
+                <span>Teaching out-of-field subjects</span>
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {/* Recommended Next Steps */}
+        <div className="card border-l-4 border-indigo-500">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">Recommended Next Steps</h3>
+          <ul className="space-y-2">
+            {(teacher.recommendations ?? []).length > 0 ? (
+              teacher.recommendations.map((rec, idx) => (
+                <li key={idx} className="text-xs text-slate-600 flex items-start gap-2">
+                  <span className="text-indigo-400 mt-0.5">→</span>
+                  <span>{rec}</span>
+                </li>
+              ))
+            ) : (
+              <li className="text-xs text-slate-400">No specific recommendations at this time</li>
+            )}
+          </ul>
+        </div>
+      </div>
+
+      {/* Training History & Recommended Modules */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Completed Training */}
+        <div className="card">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-bold">✓</span>
+            Training Completed
+          </h3>
+          <div className="space-y-2">
+            {(teacher.trainings ?? []).length > 0 ? (
+              teacher.trainings.map((tr, idx) => (
+                <div key={idx} className="text-xs p-2 bg-green-50 border border-green-100 rounded-lg">
+                  <p className="text-slate-700 font-medium">{tr.module_name}</p>
+                  {tr.year && <p className="text-slate-400 text-[10px] mt-0.5">Completed: {tr.year}</p>}
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-400">No STAR training completed yet</p>
+            )}
+          </div>
+        </div>
+
+        {/* Recommended Modules */}
+        <div className="card">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+            <span className="w-5 h-5 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">→</span>
+            Recommended for You
+          </h3>
+          <div className="space-y-2">
+            {(teacher.recommended_modules ?? []).length > 0 ? (
+              teacher.recommended_modules.map((mod, idx) => (
+                <div key={idx} className="text-xs p-2 bg-indigo-50 border border-indigo-100 rounded-lg">
+                  <p className="text-indigo-700 font-medium">{mod}</p>
+                  <p className="text-slate-400 text-[10px] mt-0.5">Priority: {idx === 0 ? 'High' : idx === 1 ? 'Medium' : 'Low'}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-400">No module recommendations available</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SubjectScoreCard({ label, score }) {
+  const level = score >= 75 ? 'Proficient' : score >= 50 ? 'Developing' : 'Needs Support'
+  const color = score >= 75 ? 'text-green-600' : score >= 50 ? 'text-amber-600' : 'text-red-600'
+
+  return (
+    <div className="bg-slate-50 rounded-lg p-3 text-center">
+      <p className="text-[10px] text-slate-400 mb-1">{label}</p>
+      <p className={`text-xl font-bold ${color}`}>{score || '—'}</p>
+      <p className="text-[9px] text-slate-500">{score ? level : 'No data'}</p>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main Teachers Component
+// ---------------------------------------------------------------------------
+
 export default function TeachersPage() {
-  // State for API data and filters
+  const user = getCurrentUser()
   const [data, setData] = useState({ total: 0, pages: 0, results: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -38,6 +215,9 @@ export default function TeachersPage() {
   const [selectedId, setSelectedId] = useState('')
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // If teacher is logged in and viewing their own growth dashboard
+  const showGrowthDashboard = user?.role === 'teacher' && user?.id
 
   /**
    * Fetch teachers from API with current filters.
@@ -77,6 +257,11 @@ export default function TeachersPage() {
   // Pagination controls
   const hasPrev = page > 0
   const hasNext = page + 1 < data.pages
+
+  // Show growth dashboard for teacher role
+  if (showGrowthDashboard) {
+    return <TeacherGrowthDashboard teacherId={user.id} />
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">

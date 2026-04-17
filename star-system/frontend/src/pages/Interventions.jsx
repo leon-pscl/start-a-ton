@@ -12,6 +12,10 @@ export default function InterventionsPage() {
   const [runningSim, setRunningSim] = useState(false)
   const [trainingCount, setTrainingCount] = useState(10)
   const [uplift, setUplift] = useState(12)
+  const [bulkSelection, setBulkSelection] = useState([])
+  const [bulkAction, setBulkAction] = useState('')
+  const [showBulkMenu, setShowBulkMenu] = useState(false)
+  const [savedScenarios, setSavedScenarios] = useState([])
 
   useEffect(() => {
     setError('')
@@ -94,11 +98,98 @@ export default function InterventionsPage() {
     }
   }
 
+  const runPresetSimulation = async (preset) => {
+    switch (preset) {
+      case 'math50':
+        setTrainingCount(50)
+        setUplift(15)
+        break
+      case 'region10':
+        setTrainingCount(10)
+        setUplift(10)
+        break
+      case 'full':
+        setTrainingCount(100)
+        setUplift(20)
+        break
+      default:
+        break
+    }
+    setTimeout(() => runSimulation(), 100)
+  }
+
+  const saveScenario = () => {
+    if (!simulation) return
+    const scenario = {
+      id: Date.now(),
+      name: `Scenario ${savedScenarios.length + 1}`,
+      trainingCount,
+      uplift,
+      result: simulation,
+      savedAt: new Date().toISOString(),
+    }
+    setSavedScenarios(prev => [...prev, scenario])
+  }
+
+  const toggleBulkSelection = (schoolName) => {
+    setBulkSelection(prev => {
+      if (prev.includes(schoolName)) {
+        return prev.filter(s => s !== schoolName)
+      }
+      return [...prev, schoolName]
+    })
+  }
+
+  const handleBulkAction = () => {
+    if (!bulkAction || bulkSelection.length === 0) return
+    // In a real implementation, this would call an API
+    alert(`Bulk action "${bulkAction}" on ${bulkSelection.length} schools: ${bulkSelection.join(', ')}`)
+    setBulkSelection([])
+    setBulkAction('')
+    setShowBulkMenu(false)
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <PageHeader
-        title="Interventions"
+        title="Planning & Simulation"
         subtitle="Prioritization, reassignment matching, and impact simulation"
+        actions={
+          bulkSelection.length > 0 && (
+            <div className="relative">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">{bulkSelection.length} selected</span>
+                <select
+                  value={bulkAction}
+                  onChange={(e) => setBulkAction(e.target.value)}
+                  className="input text-xs w-48"
+                >
+                  <option value="">Select action...</option>
+                  <option value="deploy_math">Deploy Math Module</option>
+                  <option value="deploy_science">Deploy Science Module</option>
+                  <option value="schedule_training">Schedule Training Batch</option>
+                  <option value="export_plan">Export Action Plan</option>
+                </select>
+                <button
+                  onClick={handleBulkAction}
+                  disabled={!bulkAction}
+                  className="btn-primary text-xs"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={() => {
+                    setBulkSelection([])
+                    setBulkAction('')
+                  }}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )
+        }
       />
 
       {loading ? (
@@ -133,19 +224,53 @@ export default function InterventionsPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
             <div className="card">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Priority school actions</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Priority school actions</p>
+                <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={bulkSelection.length === criticalSchools.length && criticalSchools.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setBulkSelection(criticalSchools.map(s => s.school_name))
+                      } else {
+                        setBulkSelection([])
+                      }
+                    }}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                  />
+                  Select all
+                </label>
+              </div>
               <div className="space-y-3">
                 {criticalSchools.length === 0 ? (
                   <p className="text-sm text-slate-400">No critical schools found.</p>
                 ) : (
                   criticalSchools.map((school) => (
-                    <div key={`${school.region}-${school.school_name}`} className="border border-slate-100 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-semibold text-slate-700">{school.school_name}</p>
-                        <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{school.priority_level}</span>
+                    <div
+                      key={`${school.region}-${school.school_name}`}
+                      className={`border rounded-lg p-3 transition-colors ${
+                        bulkSelection.includes(school.school_name)
+                          ? 'border-indigo-300 bg-indigo-50'
+                          : 'border-slate-100 hover:border-slate-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={bulkSelection.includes(school.school_name)}
+                          onChange={() => toggleBulkSelection(school.school_name)}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-sm font-semibold text-slate-700">{school.school_name}</p>
+                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{school.priority_level}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mb-1">{school.region} · Score {school.priority_score}</p>
+                          <p className="text-xs text-slate-600">{(school.recommendations ?? [])[0]}</p>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 mb-1">{school.region} · Score {school.priority_score}</p>
-                      <p className="text-xs text-slate-600">{(school.recommendations ?? [])[0]}</p>
                     </div>
                   ))
                 )}
@@ -154,6 +279,20 @@ export default function InterventionsPage() {
 
             <div className="card">
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Impact simulation</p>
+
+              {/* Preset scenarios */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button onClick={() => runPresetSimulation('math50')} className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors">
+                  Train 50 teachers (Math)
+                </button>
+                <button onClick={() => runPresetSimulation('region10')} className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors">
+                  10% uplift (1 region)
+                </button>
+                <button onClick={() => runPresetSimulation('full')} className="text-xs px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition-colors">
+                  Full deployment (100 teachers)
+                </button>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="text-xs text-slate-500 block mb-1">Teachers to train</label>
@@ -181,6 +320,11 @@ export default function InterventionsPage() {
               <button type="button" onClick={runSimulation} disabled={runningSim} className="btn-primary text-xs mb-4">
                 {runningSim ? 'Running simulation...' : 'Run simulation'}
               </button>
+              {simulation && (
+                <button onClick={saveScenario} className="text-xs text-indigo-600 hover:underline mb-3 block">
+                  Save this scenario
+                </button>
+              )}
 
               {simulation && (
                 <div>
@@ -199,6 +343,33 @@ export default function InterventionsPage() {
                     </div>
                   </div>
                   <p className="text-xs text-slate-500">Simulated teachers: {simulation.teachers_simulated}</p>
+                </div>
+              )}
+
+              {/* Saved scenarios */}
+              {savedScenarios.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-semibold text-slate-500 mb-2">Saved scenarios</p>
+                  <div className="space-y-2">
+                    {savedScenarios.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                        <div>
+                          <p className="text-xs font-medium text-slate-700">{s.name}</p>
+                          <p className="text-[10px] text-slate-400">{s.trainingCount} teachers · +{s.uplift}% · {s.result.improvement} improvement</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setTrainingCount(s.trainingCount)
+                            setUplift(s.uplift)
+                            setSimulation(s.result)
+                          }}
+                          className="text-xs text-indigo-600 hover:underline"
+                        >
+                          Load
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

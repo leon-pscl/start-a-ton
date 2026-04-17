@@ -12,8 +12,9 @@
  * Uses React Router's NavLink for active state styling.
  */
 
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
+import { getCurrentUser, logout } from '../../lib/auth'
 
 // ---------------------------------------------------------------------------
 // Navigation Configuration
@@ -44,6 +45,29 @@ const NAV = [
 // ---------------------------------------------------------------------------
 
 export default function Sidebar() {
+  const navigate = useNavigate()
+  const user = getCurrentUser()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
+  // Filter nav items based on user role
+  const filteredNav = NAV.filter((item) => {
+    if (!user) return true
+    if (user.role === 'teacher') {
+      // Teachers only see dashboard, teachers (own profile), and profile
+      return ['/dashboard', '/teachers', '/profile'].includes(item.to)
+    }
+    if (user.role === 'regional_coordinator' && user.region) {
+      // Regional coordinators see most pages but data is filtered by their region
+      return true
+    }
+    // Program officers see everything
+    return true
+  })
+
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-slate-100 flex flex-col hidden sm:flex">
       {/* Logo and branding */}
@@ -62,7 +86,7 @@ export default function Sidebar() {
 
       {/* Navigation links */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {filteredNav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
@@ -82,6 +106,43 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      {/* User profile section */}
+      {user && (
+        <div className="px-3 py-3 border-t border-slate-100">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => clsx(
+              'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors mb-1',
+              isActive
+                ? 'bg-star-50 text-star-700 font-medium'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+            )}
+          >
+            <div className="w-6 h-6 bg-star-100 rounded-full flex items-center justify-center">
+              <span className="text-xs font-bold text-star-700">
+                {user.name?.charAt(0)?.toUpperCase() || 'U'}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-slate-700 truncate">{user.name}</p>
+              <p className="text-[10px] text-slate-400 capitalize">{user.role?.replace(/_/g, ' ')}</p>
+            </div>
+            <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5l7 7-7 7" />
+            </svg>
+          </NavLink>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-400 hover:text-red-600 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Sign out
+          </button>
+        </div>
+      )}
 
       {/* Footer with version info */}
       <div className="px-5 py-4 border-t border-slate-100">
