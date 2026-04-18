@@ -16,6 +16,7 @@ export default function InterventionsPage() {
   const [bulkAction, setBulkAction] = useState('')
   const [showBulkMenu, setShowBulkMenu] = useState(false)
   const [savedScenarios, setSavedScenarios] = useState([])
+  const [showGuide, setShowGuide] = useState(true)
 
   useEffect(() => {
     setError('')
@@ -155,42 +156,89 @@ export default function InterventionsPage() {
         title="Planning & Simulation"
         subtitle="Prioritization, reassignment matching, and impact simulation"
         actions={
-          bulkSelection.length > 0 && (
-            <div className="relative">
+          <div className="flex items-center gap-3">
+            {bulkSelection.length > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500">{bulkSelection.length} selected</span>
                 <select
                   value={bulkAction}
                   onChange={(e) => setBulkAction(e.target.value)}
-                  className="input text-xs w-48"
+                  className="input text-xs w-40"
                 >
                   <option value="">Select action...</option>
                   <option value="deploy_math">Deploy Math Module</option>
                   <option value="deploy_science">Deploy Science Module</option>
-                  <option value="schedule_training">Schedule Training Batch</option>
-                  <option value="export_plan">Export Action Plan</option>
+                  <option value="schedule_training">Schedule Training</option>
                 </select>
-                <button
-                  onClick={handleBulkAction}
-                  disabled={!bulkAction}
-                  className="btn-primary text-xs"
-                >
+                <button onClick={handleBulkAction} disabled={!bulkAction} className="btn-primary text-xs py-1">
                   Apply
                 </button>
-                <button
-                  onClick={() => {
-                    setBulkSelection([])
-                    setBulkAction('')
-                  }}
-                  className="text-xs text-slate-400 hover:text-slate-600"
-                >
+                <button onClick={() => { setBulkSelection([]); setBulkAction('') }} className="text-xs text-slate-400 hover:text-slate-600">
                   Clear
                 </button>
               </div>
-            </div>
-          )
+            )}
+            <button
+              onClick={() => setShowGuide(!showGuide)}
+              className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {showGuide ? 'Hide Guide' : 'Show Guide'}
+            </button>
+          </div>
         }
       />
+
+      {/* Quick Guide */}
+      {showGuide && (
+        <div className="mb-6 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-100 p-5">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="text-sm font-semibold text-indigo-800">How to Use This Page</h3>
+            <button onClick={() => setShowGuide(false)} className="text-indigo-400 hover:text-indigo-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <div className="flex gap-3">
+              <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+              <div>
+                <p className="font-medium text-slate-700">Review Critical Schools</p>
+                <p className="text-xs text-slate-500 mt-0.5">See schools that need immediate intervention. Select schools for bulk actions.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+              <div>
+                <p className="font-medium text-slate-700">Run Simulations</p>
+                <p className="text-xs text-slate-500 mt-0.5">Set teachers to train and expected uplift, then click "Run simulation" to see projected impact.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+              <div>
+                <p className="font-medium text-slate-700">Explore Reassignments</p>
+                <p className="text-xs text-slate-500 mt-0.5">View teacher relocation suggestions to fill gaps in underserved schools.</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
+              <div>
+                <p className="font-medium text-slate-700">Check Risk Forecast</p>
+                <p className="text-xs text-slate-500 mt-0.5">See which schools are projected to become at-risk based on current metrics.</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-indigo-100">
+            <p className="text-xs text-indigo-600">
+              <strong>Tip:</strong> Use the preset scenario buttons for quick simulations, or customize values manually. Save scenarios to compare different approaches.
+            </p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <Spinner />
@@ -203,6 +251,21 @@ export default function InterventionsPage() {
         <EmptyState message="No intervention data available" />
       ) : (
         <>
+          {/* Quick stats for context */}
+          <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+              Critical = Immediate action needed
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              At-risk = Monitor closely
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+              Watch = Stable for now
+            </span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="card border-l-4 border-red-500">
               <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Critical schools</p>
@@ -329,20 +392,60 @@ export default function InterventionsPage() {
               {simulation && (
                 <div>
                   <div className="grid grid-cols-3 gap-3 mb-3">
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">Baseline</p>
+                    <div className="bg-slate-50 rounded-lg p-3 group relative">
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400">Baseline</p>
+                        <span className="cursor-help">
+                          <svg className="w-3 h-3 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="absolute left-0 top-full mt-1 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 w-44">
+                            Current average competency score across all teachers before training.
+                          </div>
+                        </span>
+                      </div>
                       <p className="text-lg font-bold text-slate-800">{simulation.baseline_average_competency}</p>
                     </div>
-                    <div className="bg-slate-50 rounded-lg p-3">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">Projected</p>
+                    <div className="bg-slate-50 rounded-lg p-3 group relative">
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-400">Projected</p>
+                        <span className="cursor-help">
+                          <svg className="w-3 h-3 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="absolute left-0 top-full mt-1 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 w-44">
+                            Expected competency score after training the specified number of teachers.
+                          </div>
+                        </span>
+                      </div>
                       <p className="text-lg font-bold text-slate-800">{simulation.projected_average_competency}</p>
                     </div>
-                    <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                      <p className="text-[10px] uppercase tracking-wide text-indigo-500 mb-1">Improvement</p>
+                    <div className="bg-indigo-50 rounded-lg p-3 border border-indigo-100 group relative">
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-[10px] uppercase tracking-wide text-indigo-500">Improvement</p>
+                        <span className="cursor-help">
+                          <svg className="w-3 h-3 text-indigo-400 hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="absolute right-0 top-full mt-1 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 w-44">
+                            The difference between projected and baseline scores. Higher is better.
+                          </div>
+                        </span>
+                      </div>
                       <p className="text-lg font-bold text-indigo-700">+{simulation.improvement}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500">Simulated teachers: {simulation.teachers_simulated}</p>
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <span>Simulated teachers: {simulation.teachers_simulated}</span>
+                    <span className="cursor-help relative group">
+                      <svg className="w-3 h-3 text-slate-400 hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="absolute left-0 top-full mt-1 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 w-52">
+                        Number of teachers included in this simulation who would receive training.
+                      </div>
+                    </span>
+                  </div>
                 </div>
               )}
 

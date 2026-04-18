@@ -197,12 +197,15 @@ export default function ChatWidget() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>
-            <div>
+            <div className="flex-1">
               <h3 className="font-semibold text-slate-800 text-sm">STAR Assistant</h3>
               <p className="text-xs text-slate-500">
                 {dataContext ? `${dataContext.total_teachers?.toLocaleString()} teachers in system` : 'Loading data...'}
               </p>
             </div>
+            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">
+              Demo
+            </span>
           </div>
 
           {/* Messages */}
@@ -213,7 +216,7 @@ export default function ChatWidget() {
                   Ask questions about the STAR data.
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Try: "Which regions need the most training?"
+                  Try: "Which regions need the most intervention?"
                 </p>
               </div>
             )}

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(python -c \"from app.api.analytics import router; print\\('OK'\\)\")",
       "Bash(curl -s http://localhost:8000/analytics/regions)",
-      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); ncr=next\\(\\(r for r in data if r['region']=='NCR'\\),None\\); print\\(json.dumps\\(ncr,indent=2\\) if ncr else 'NCR not found'\\)\")"
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); ncr=next\\(\\(r for r in data if r['region']=='NCR'\\),None\\); print\\(json.dumps\\(ncr,indent=2\\) if ncr else 'NCR not found'\\)\")",
+      "Bash(npm run *)",
+      "Bash(python -c \"from app.api.chat import router; print\\('OK'\\)\")"
     ]
   }
 }

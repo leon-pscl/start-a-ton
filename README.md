@@ -95,9 +95,22 @@ python seed.py
 uvicorn main:app --reload --port 8000
 ```
 
-### AI Chatbot (Optional)
+### AI Chatbot
 
-The chatbot uses Ollama for local LLM inference. To enable it:
+The chatbot runs in **Demo Mode** by default, providing pre-configured responses for common questions about the STAR data. This allows the chatbot to work without any additional setup.
+
+**Demo Mode** (default):
+- Works out of the box with no additional installation
+- Uses fuzzy matching to answer common questions about:
+  - Regions needing intervention
+  - Training coverage and gap scores
+  - Critical priority schools
+  - Subject shortages
+  - Competency distributions
+
+**Full AI Mode** (optional, requires Ollama):
+
+To enable the full AI-powered chatbot with Ollama:
 
 ```bash
 # Install Ollama from https://ollama.ai
@@ -111,13 +124,14 @@ ollama pull llama3.1      # Larger, more capable
 ollama serve
 ```
 
-**Environment variables (optional):**
+**Environment variables:**
 ```bash
-OLLAMA_URL=http://localhost:11434  # Default
-OLLAMA_MODEL=llama3.2               # Default model
+DEMO_MODE=false                   # Set to 'false' to use Ollama (default: 'true')
+OLLAMA_URL=http://localhost:11434 # Ollama server URL
+OLLAMA_MODEL=llama3.2             # Model to use
 ```
 
-If Ollama is not running, the chatbot will show a helpful error message with setup instructions.
+To switch to full AI mode, set `DEMO_MODE=false` before starting the backend.
 
 ## Features
 
