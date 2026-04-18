@@ -12,32 +12,44 @@
  * Uses React Router's NavLink for active state styling.
  */
 
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { getCurrentUser, logout } from '../../lib/auth'
+import { getCurrentUser, logout, isAdmin } from '../../lib/auth'
 
 // ---------------------------------------------------------------------------
 // Navigation Configuration
 // ---------------------------------------------------------------------------
 
 /**
- * Navigation items for the sidebar.
+ * Navigation items for the sidebar with optional category grouping.
  * Each item has:
  * - to: Route path
  * - label: Display text
  * - icon: SVG icon component
+ * - category: Optional category for grouping (collapsible)
  */
 const NAV = [
-  { to: '/dashboard', label: 'Overview',       icon: GridIcon },
-  { to: '/regions',   label: 'Regional gaps',  icon: MapIcon },
+  { to: '/dashboard', label: 'Dashboard', icon: GridIcon },
+  {
+    category: 'Regional Analysis',
+    items: [
+      { to: '/regions', label: 'Regional gaps', icon: MapIcon },
+      { to: '/regional-insights', label: 'Regional insights', icon: ChartIcon },
+    ]
+  },
+  {
+    category: 'School Analysis',
+    items: [
+      { to: '/schools', label: 'School priorities', icon: SchoolIcon },
+      { to: '/school-teacher-management', label: 'School teacher management', icon: ClipboardUsersIcon },
+    ]
+  },
   { to: '/divisions', label: 'Division offices', icon: OfficeIcon },
-  { to: '/schools',   label: 'School priorities', icon: SchoolIcon },
-  { to: '/school-teacher-management', label: 'School teacher management', icon: ClipboardUsersIcon },
-  { to: '/regional-insights', label: 'Regional insights', icon: ChartIcon },
-  { to: '/interventions', label: 'Interventions', icon: BoltIcon },
-  { to: '/teachers',  label: 'Teachers',       icon: UsersIcon },
-  { to: '/import',    label: 'Import data',    icon: UploadIcon },
-  { to: '/register',  label: 'Teacher portal', icon: PersonIcon },
+  { to: '/interventions', label: 'Planning & Simulation', icon: BoltIcon },
+  { to: '/teachers', label: 'Teachers', icon: UsersIcon },
+  { to: '/import', label: 'Import data', icon: UploadIcon },
+  { to: '/register', label: 'Teacher portal', icon: PersonIcon },
 ]
 
 // ---------------------------------------------------------------------------
@@ -47,26 +59,39 @@ const NAV = [
 export default function Sidebar() {
   const navigate = useNavigate()
   const user = getCurrentUser()
+  const [expandedCategories, setExpandedCategories] = useState({
+    'Regional Analysis': true,
+    'School Analysis': true,
+  })
 
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
   }
 
+  const toggleCategory = (category) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }))
+  }
+
   // Filter nav items based on user role
-  const filteredNav = NAV.filter((item) => {
-    if (!user) return true
-    if (user.role === 'teacher') {
-      // Teachers only see dashboard, teachers (own profile), and profile
-      return ['/dashboard', '/teachers', '/profile'].includes(item.to)
+  const filterItems = (items) => {
+    if (!user) return items
+    if (!isAdmin()) {
+      // Teachers only see dashboard, teachers, and profile
+      return items.filter(item => {
+        if (item.category) {
+          return false // Teachers don't see categories
+        }
+        return ['/dashboard', '/teachers', '/profile'].includes(item.to)
+      })
     }
-    if (user.role === 'regional_coordinator' && user.region) {
-      // Regional coordinators see most pages but data is filtered by their region
-      return true
-    }
-    // Program officers see everything
-    return true
-  })
+    return items
+  }
+
+  const filteredNav = filterItems(NAV)
 
   return (
     <aside className="w-56 min-h-screen bg-white border-r border-slate-100 flex flex-col hidden sm:flex">
@@ -85,26 +110,68 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation links */}
-      <nav className="flex-1 px-3 py-4 flex flex-col gap-0.5">
-        {filteredNav.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            /**
-             * Apply active styling when the route matches.
-             * Uses clsx for conditional class merging.
-             */
-            className={({ isActive }) => clsx(
-              'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
-              isActive
-                ? 'bg-star-50 text-star-700 font-medium'      // Active state
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'  // Inactive
-            )}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-          </NavLink>
-        ))}
+      <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
+        {filteredNav.map((item, index) => {
+          // Category with collapsible subitems
+          if (item.category) {
+            const isExpanded = expandedCategories[item.category] ?? true
+            return (
+              <div key={item.category} className="mb-2">
+                <button
+                  onClick={() => toggleCategory(item.category)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide hover:bg-slate-50 rounded-lg transition-colors"
+                >
+                  {item.category}
+                  <svg
+                    className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isExpanded && (
+                  <div className="ml-2 mt-1 space-y-0.5">
+                    {item.items.map(({ to, label, icon: Icon }) => (
+                      <NavLink
+                        key={to}
+                        to={to}
+                        className={({ isActive }) => clsx(
+                          'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
+                          isActive
+                            ? 'bg-star-50 text-star-700 font-medium'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          // Regular nav item (no category)
+          const { to, label, icon: Icon } = item
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => clsx(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
+                isActive
+                  ? 'bg-star-50 text-star-700 font-medium'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+              )}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* User profile section */}

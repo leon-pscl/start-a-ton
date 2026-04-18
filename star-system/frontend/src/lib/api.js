@@ -238,6 +238,22 @@ export const getReassignmentSuggestions = (limit = 15) =>
   request(`/analytics/reassignments?limit=${limit}`)
 
 // ---------------------------------------------------------------------------
+// Calamity Status Management
+// ---------------------------------------------------------------------------
+
+/**
+ * Update a region's calamity status.
+ *
+ * @param {string} region - Region name to update
+ * @param {object} status - { critical_status: "normal" | "calamity" | "emergency", critical_reason: string }
+ */
+export const updateRegionStatus = (region, status) =>
+  request(`/analytics/regions/${encodeURIComponent(region)}/status`, {
+    method: 'POST',
+    body: JSON.stringify(status),
+  })
+
+// ---------------------------------------------------------------------------
 // Chat Endpoint
 // ---------------------------------------------------------------------------
 

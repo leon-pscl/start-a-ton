@@ -426,3 +426,26 @@ class ImportLog(SQLModel, table=True):
     rows_flagged: int = 0            # Number of rows with issues (missing data, etc.)
     errors: Optional[str] = None    # Error messages if any
     created_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Region Status Model
+# ---------------------------------------------------------------------------
+
+class RegionStatus(SQLModel, table=True):
+    """
+    Region status tracking for calamity and critical events.
+
+    Allows Program Officers to flag regions affected by natural calamities,
+    conflicts, or other emergencies that impact teacher capacity and
+    training access. Status affects priority scoring and visual indicators.
+    """
+    id: str = Field(default_factory=gen_uuid, primary_key=True)
+    region: str = Field(unique=True, index=True)  # Canonical region name
+    critical_status: str = "normal"  # "normal", "calamity", or "emergency"
+    critical_reason: Optional[str] = None  # Description of the situation
+    declared_by: Optional[str] = None  # User who declared the status
+    declared_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None  # When status returned to normal
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)

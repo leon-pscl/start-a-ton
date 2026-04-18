@@ -13,11 +13,9 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { login } from '../lib/auth'
-import { REGIONS } from '../lib/constants'
 
 const ROLES = [
-  { value: 'program_officer', label: 'Program Officer', description: 'Full access to all regions and analytics' },
-  { value: 'regional_coordinator', label: 'Regional Coordinator', description: 'Manage and monitor assigned region' },
+  { value: 'admin', label: 'Program Officer / Regional Coordinator', description: 'Full access to all regional data and analytics' },
   { value: 'teacher', label: 'Teacher', description: 'View personal growth and update profile' },
 ]
 
@@ -26,7 +24,6 @@ export default function Login() {
   const location = useLocation()
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
-  const [region, setRegion] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -46,11 +43,6 @@ export default function Login() {
       return
     }
 
-    if (role === 'regional_coordinator' && !region) {
-      setError('Please select your assigned region')
-      return
-    }
-
     setLoading(true)
 
     // Simulate brief auth delay
@@ -58,7 +50,6 @@ export default function Login() {
       login({
         name: name.trim(),
         role,
-        region: region || undefined,
       })
       navigate(from, { replace: true })
     }, 500)
@@ -126,24 +117,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Region selector (only for regional coordinators) */}
-          {role === 'regional_coordinator' && (
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                Assigned region *
-              </label>
-              <select
-                className="input w-full"
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-              >
-                <option value="">Select your region</option>
-                {REGIONS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Error message */}
           {error && (

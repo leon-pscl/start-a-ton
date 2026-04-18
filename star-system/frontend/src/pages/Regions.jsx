@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getRegions, getRegionDetail, getProvinces, getCities, getSubjectShortage, exportCSV } from '../lib/api'
+import { getRegions, getRegionDetail, getProvinces, getCities, getSubjectShortage, exportCSV, updateRegionStatus } from '../lib/api'
 import { GapBadge, GapBar, Spinner, PageHeader } from '../components/shared'
 import PhilippinesMap from '../components/shared/PhilippinesMap'
 
@@ -21,6 +21,118 @@ const SHORT_NAMES = {
   'Design Thinking for K-3 Science and Mathematics': 'Design Thinking (K-3)',
   'Designing Assessment Activities for Blended Learning': 'Blended Assessment',
   'Instrumentation and Improvisation': 'Instrumentation',
+}
+
+// WPI Component descriptions for tooltips
+const WPI_COMPONENTS_INFO = {
+  coverage_score: {
+    title: 'Training Coverage',
+    weight: '30%',
+    description: 'Measures the percentage of teachers who have not received STAR training. Regions with more untrained teachers receive higher scores (higher priority).',
+    rationale: 'Training coverage is weighted highest because it represents the most direct intervention opportunity - untrained teachers can attend STAR modules.',
+  },
+  mismatch_score: {
+    title: 'Competency Mismatch',
+    weight: '25%',
+    description: 'Measures out-of-field teaching rates. Higher scores indicate more teachers teaching subjects outside their specialization.',
+    rationale: 'Out-of-field teaching impacts student learning outcomes. This component helps identify regions needing teacher reassignment or upskilling.',
+  },
+  workload_score: {
+    title: 'Instructional Workload',
+    weight: '20%',
+    description: 'Based on student-teacher ratio. Higher ratios indicate heavier workloads and fewer teachers per student.',
+    rationale: 'High student-teacher ratios reduce individual attention and increase teacher burnout risk.',
+  },
+  distance_score: {
+    title: 'Distance / Access',
+    weight: '15%',
+    description: 'Measures geographic and connectivity barriers. Remote areas with difficult access to training centers score higher.',
+    rationale: 'Travel distance is a major barrier to training participation. Remote regions need targeted support like mobile training or blended learning.',
+  },
+  recency_score: {
+    title: 'Training Recency',
+    weight: '10%',
+    description: 'Measures how recently teachers received training. Older training dates result in higher scores.',
+    rationale: 'Skills degrade over time. Teachers trained 3+ years ago may need refresher courses to maintain competency.',
+  },
+  reward: {
+    title: 'Participation Reward',
+    weight: 'Bonus',
+    description: 'Reduces the WPI score for regions with strong historical engagement in STAR programs. Acts as a "good behavior" bonus.',
+    rationale: 'Regions that consistently participate in training should be rewarded with lower priority scores, allowing other regions to receive attention first.',
+  },
+}
+
+function InfoTooltip({ componentKey }) {
+  const [show, setShow] = useState(false)
+  const info = WPI_COMPONENTS_INFO[componentKey]
+
+  if (!info) return null
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(!show)}
+        className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-700 flex items-center justify-center text-[10px] font-bold transition-colors"
+        type="button"
+      >
+        i
+      </button>
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-slate-800 text-white text-xs rounded-lg shadow-xl p-3">
+          <p className="font-bold text-slate-100 mb-1">{info.title}</p>
+          <p className="text-slate-300 mb-2">{info.description}</p>
+          <div className="border-t border-slate-600 pt-2">
+            <p className="text-slate-400"><span className="font-semibold text-slate-200">Weight:</span> {info.weight}</p>
+            <p className="text-slate-400 mt-1"><span className="font-semibold text-slate-200">Why it matters:</span> {info.rationale}</p>
+          </div>
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CalamityInfoTooltip() {
+  const [show, setShow] = useState(false)
+
+  return (
+    <div className="relative inline-block">
+      <button
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        onClick={() => setShow(!show)}
+        className="w-4 h-4 rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-700 flex items-center justify-center text-[10px] font-bold transition-colors"
+        type="button"
+      >
+        ?
+      </button>
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 bg-slate-800 text-white text-xs rounded-lg shadow-xl p-3">
+          <p className="font-bold text-slate-100 mb-2">Calamity Status</p>
+          <p className="text-slate-300 mb-2">
+            Flag regions affected by natural calamities, conflicts, or emergencies that impact teacher capacity and training access.
+          </p>
+          <div className="border-t border-slate-600 pt-2 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-sm border border-amber-600" style={{ background: '#fcd34d', borderStyle: 'dashed' }} />
+              <span className="text-slate-300"><strong className="text-amber-400">Calamity:</strong> Region affected by disaster (typhoon, earthquake, etc.)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-sm border border-red-600" style={{ background: '#fca5a5', borderStyle: 'dashed' }} />
+              <span className="text-slate-300"><strong className="text-red-400">Emergency:</strong> Severe crisis requiring immediate response</span>
+            </div>
+          </div>
+          <p className="text-slate-400 mt-2 text-[10px]">
+            Affected regions are highlighted on the map and prioritized in the list.
+          </p>
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-800" />
+        </div>
+      )}
+    </div>
+  )
 }
 
 function uptakeLevel(pct) {
@@ -195,6 +307,9 @@ export default function RegionsPage() {
   const [compareMode, setCompareMode] = useState(false)
   const [compareSelection, setCompareSelection] = useState([])
   const [showComparison, setShowComparison] = useState(false)
+  const [showCalamityOnly, setShowCalamityOnly] = useState(false)
+  const [calamityForm, setCalamityForm] = useState({ status: '', reason: '' })
+  const [updatingCalamity, setUpdatingCalamity] = useState(false)
 
   useEffect(() => {
     Promise.all([getRegions(), getProvinces(), getCities()])
@@ -232,7 +347,55 @@ export default function RegionsPage() {
     }
   }
 
-  const sorted = [...regions].sort((a, b) => {
+  const openCalamityForm = (region) => {
+    setCalamityForm({
+      region,
+      status: detail?.critical_status || 'normal',
+      reason: detail?.critical_reason || '',
+    })
+  }
+
+  const updateCalamityStatus = async () => {
+    if (!calamityForm.region || !calamityForm.reason.trim()) return
+    setUpdatingCalamity(true)
+    try {
+      // Call API to persist calamity status
+      const updated = await updateRegionStatus(calamityForm.region, {
+        critical_status: calamityForm.status,
+        critical_reason: calamityForm.reason,
+      })
+
+      // Update local state with API response
+      setRegions(prev => prev.map(r =>
+        r.region === calamityForm.region
+          ? { ...r, critical_status: updated.critical_status, critical_reason: updated.critical_reason }
+          : r
+      ))
+      if (detail && detail.region === calamityForm.region) {
+        setDetail(prev => ({
+          ...prev,
+          critical_status: updated.critical_status,
+          critical_reason: updated.critical_reason,
+        }))
+      }
+      setCalamityForm({ region: '', status: '', reason: '' })
+    } catch (e) {
+      console.error('Failed to update calamity status:', e)
+      setError(`Failed to update status: ${e.message}`)
+    } finally {
+      setUpdatingCalamity(false)
+    }
+  }
+
+  // Filter regions by calamity status if toggled
+  const filteredRegions = showCalamityOnly
+    ? regions.filter(r => r.critical_status === 'calamity' || r.critical_status === 'emergency')
+    : regions
+
+  const sorted = [...filteredRegions].sort((a, b) => {
+    // Always sort calamity-affected regions to top
+    if (a.critical_status && !b.critical_status) return -1
+    if (!a.critical_status && b.critical_status) return 1
     if (sortBy === 'gap_score') return b.gap_score - a.gap_score
     if (sortBy === 'total') return b.total_teachers - a.total_teachers
     if (sortBy === 'name') return a.region.localeCompare(b.region)
@@ -254,22 +417,41 @@ export default function RegionsPage() {
                 setCompareSelection([])
                 setShowComparison(false)
               }}
-              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+              className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
                 compareMode
                   ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
                   : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
               }`}
             >
-              {compareMode ? '✓ Selecting...' : 'Compare regions'}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              {compareMode ? 'Selecting...' : 'Compare'}
             </button>
             {compareSelection.length >= 2 && (
               <button
                 onClick={showSelectedComparison}
                 className="btn-primary text-xs"
               >
-                Compare {compareSelection.length} regions
+                Compare {compareSelection.length}
               </button>
             )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowCalamityOnly(!showCalamityOnly)}
+                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${
+                  showCalamityOnly
+                    ? 'bg-red-100 border-red-300 text-red-700'
+                    : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.334.192 3 1.732 3z" />
+                </svg>
+                Calamity
+              </button>
+              <CalamityInfoTooltip />
+            </div>
             <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="input text-xs w-36">
               <option value="gap_score">Sort: gap score</option>
               <option value="total">Sort: teacher count</option>
@@ -279,6 +461,40 @@ export default function RegionsPage() {
           </div>
         }
       />
+
+      {/* Compare mode instructions */}
+      {compareMode && (
+        <div className="card mb-6 bg-indigo-50 border border-indigo-100 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-semibold text-indigo-800 mb-1">How to compare regions</h3>
+              <ol className="text-xs text-indigo-700 space-y-1">
+                <li>1. Click on checkboxes next to 2-4 regions in the table below</li>
+                <li>2. Click the "Compare X" button to see side-by-side analysis</li>
+                <li>3. View WPI component breakdown to understand why each region has its score</li>
+                <li>4. Click "Dismiss" to return to normal view</li>
+              </ol>
+            </div>
+            <button
+              onClick={() => {
+                setCompareMode(false)
+                setCompareSelection([])
+                setShowComparison(false)
+              }}
+              className="text-indigo-400 hover:text-indigo-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card mb-6 p-4">
         <div className="flex items-center justify-between mb-3">
@@ -419,10 +635,41 @@ export default function RegionsPage() {
               <div>
                 <div className="flex items-start justify-between mb-5">
                   <div>
-                    <h2 className="font-display font-bold text-slate-800 text-lg">{detail.region}</h2>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="font-display font-bold text-slate-800 text-lg">{detail.region}</h2>
+                      {detail.critical_status && detail.critical_status !== 'normal' && (
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                          detail.critical_status === 'emergency'
+                            ? 'bg-red-600 text-white animate-pulse'
+                            : 'bg-amber-500 text-white'
+                        }`}>
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.334.192 3 1.732 3z" />
+                          </svg>
+                          {detail.critical_status}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-400 mt-0.5">{detail.total_teachers} teachers · {detail.total_students?.toLocaleString()} students</p>
+                    {detail.critical_reason && (
+                      <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {detail.critical_reason}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openCalamityForm(detail.region)}
+                      className="text-xs px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded hover:bg-amber-100 transition-colors flex items-center gap-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.334.192 3 1.732 3z" />
+                      </svg>
+                      {detail.critical_status && detail.critical_status !== 'normal' ? 'Update status' : 'Mark calamity'}
+                    </button>
                     {detail.impact_score > 0 && (
                       <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-1 rounded-md">Impact: {detail.impact_score.toLocaleString()}</span>
                     )}
@@ -443,7 +690,10 @@ export default function RegionsPage() {
                       { label: 'Participation reward', key: 'reward', desc: 'Historical engagement bonus', value: detail.engagement_reward, isReward: true },
                     ].map(({ label, key, desc, value, isReward }) => (
                       <div key={key} className={`rounded-lg p-3 ${isReward ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50'}`}>
-                        <div className="flex justify-between text-xs mb-2"><span className={`font-medium ${isReward ? 'text-indigo-700' : 'text-slate-700'}`}>{label}</span></div>
+                        <div className="flex justify-between items-center text-xs mb-2">
+                          <span className={`font-medium ${isReward ? 'text-indigo-700' : 'text-slate-700'}`}>{label}</span>
+                          <InfoTooltip componentKey={key} />
+                        </div>
                         {isReward ? (
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 bg-indigo-100 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${(value || 0) * 100}%` }} /></div>
@@ -478,6 +728,64 @@ export default function RegionsPage() {
                     <p className="text-[11px] text-slate-500">Critical priority schools</p>
                   </div>
                 </div>
+
+                {/* Calamity Status Form */}
+                {calamityForm.region === detail.region && (
+                  <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.334.192 3 1.732 3z" />
+                      </svg>
+                      <h3 className="text-sm font-bold text-amber-800">Calamity Status for {detail.region}</h3>
+                      <CalamityInfoTooltip />
+                    </div>
+                    <p className="text-xs text-amber-700 mb-3 -mt-2">
+                      Use this form to flag regions affected by disasters. This affects priority scoring and visual indicators on the map.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs font-medium text-amber-700 mb-1">Status</label>
+                        <select
+                          value={calamityForm.status}
+                          onChange={(e) => setCalamityForm({ ...calamityForm, status: e.target.value })}
+                          className="input text-sm w-full"
+                        >
+                          <option value="normal">Normal operations</option>
+                          <option value="calamity">Calamity-affected</option>
+                          <option value="emergency">State of emergency</option>
+                        </select>
+                        <p className="text-[10px] text-amber-600 mt-1">
+                          <strong>Calamity:</strong> Typhoon, earthquake, flood · <strong>Emergency:</strong> Severe crisis, armed conflict
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-amber-700 mb-1">Reason / Event</label>
+                        <input
+                          type="text"
+                          value={calamityForm.reason}
+                          onChange={(e) => setCalamityForm({ ...calamityForm, reason: e.target.value })}
+                          placeholder="e.g. Typhoon Karding, Earthquake"
+                          className="input text-sm w-full"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setCalamityForm({ region: '', status: '', reason: '' })}
+                        className="text-xs px-3 py-1.5 text-slate-600 hover:text-slate-800"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={updateCalamityStatus}
+                        disabled={updatingCalamity || !calamityForm.reason.trim()}
+                        className="btn-primary text-xs"
+                      >
+                        {updatingCalamity ? 'Updating...' : 'Save status'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {detail.recommendations && detail.recommendations.length > 0 && (
                   <div className="mb-6">
@@ -591,6 +899,7 @@ export default function RegionsPage() {
             {sorted.map(r => {
               const isSelected = compareSelection.includes(r.region)
               const canSelect = !isSelected && compareSelection.length >= 4
+              const isCalamity = r.critical_status && r.critical_status !== 'normal'
 
               return (
                 <tr
@@ -599,7 +908,9 @@ export default function RegionsPage() {
                   className={`border-b border-slate-50 transition-colors ${
                     compareMode
                       ? isSelected ? 'bg-indigo-50' : canSelect ? 'cursor-pointer hover:bg-slate-50' : 'cursor-not-allowed opacity-50'
-                      : selected === r.region ? 'bg-star-50' : 'cursor-pointer hover:bg-slate-50'
+                      : isCalamity
+                        ? selected === r.region ? 'bg-star-50 border-l-4 border-l-red-500' : 'cursor-pointer hover:bg-red-50 border-l-4 border-l-red-300'
+                        : selected === r.region ? 'bg-star-50' : 'cursor-pointer hover:bg-slate-50'
                   }`}
                 >
                   {compareMode && (
@@ -613,7 +924,23 @@ export default function RegionsPage() {
                       />
                     </td>
                   )}
-                  <td className="px-4 py-3 font-medium text-slate-700">{r.region}</td>
+                  <td className="px-4 py-3 font-medium text-slate-700">
+                    <div className="flex items-center gap-2">
+                      {r.region}
+                      {isCalamity && (
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full flex items-center gap-1 ${
+                          r.critical_status === 'emergency'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-amber-500 text-white'
+                        }`}>
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.334.192 3 1.732 3z" />
+                          </svg>
+                          {r.critical_status}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-right text-slate-500">{r.total_teachers}</td>
                   <td className="px-4 py-3 text-right text-slate-500">
                     {r.trained_count}

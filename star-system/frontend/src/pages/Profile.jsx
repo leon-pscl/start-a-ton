@@ -84,10 +84,9 @@ export default function Profile() {
             </div>
             <div>
               <h2 className="text-lg font-display font-bold text-slate-800">{user?.name || 'Unknown User'}</h2>
-              <p className="text-sm text-slate-500 capitalize">{user?.role?.replace(/_/g, ' ')}</p>
-              {user?.role === 'regional_coordinator' && user?.region && (
-                <p className="text-xs text-indigo-600 font-medium mt-1">Assigned: {user.region}</p>
-              )}
+              <p className="text-sm text-slate-500">
+                {user?.role === 'admin' ? 'Program Officer / Regional Coordinator' : user?.role}
+              </p>
             </div>
           </div>
           {user?.role === 'teacher' && (
@@ -223,12 +222,11 @@ export default function Profile() {
       )}
 
       {/* Non-teacher info */}
-      {user?.role !== 'teacher' && (
+      {user?.role === 'admin' && (
         <div className="card">
           <p className="text-sm text-slate-500">
-            {user.role === 'program_officer'
-              ? 'As a Program Officer, you have full access to all regional data and analytics. Use the dashboard to monitor system-wide interventions.'
-              : 'As a Regional Coordinator, you have access to your assigned region\'s data. Use the regional analysis pages to monitor and plan interventions.'}
+            As a Program Officer or Regional Coordinator, you have full access to all regional data and analytics.
+            Use the dashboard to monitor system-wide interventions, compare regions, and plan capacity-building activities.
           </p>
         </div>
       )}

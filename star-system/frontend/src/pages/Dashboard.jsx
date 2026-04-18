@@ -71,9 +71,7 @@ export default function Dashboard() {
     <div className="p-6 max-w-7xl mx-auto">
       <PageHeader
         title="Command Center"
-        subtitle={user?.role === 'regional_coordinator'
-          ? `Monitoring: ${user.region}`
-          : 'STAR capacity-building data across all regions'}
+        subtitle="STAR capacity-building data across all regions"
         actions={
           <div className="flex gap-2">
             <button onClick={() => exportPDF()} className="btn-primary text-xs flex items-center gap-1.5 px-4 shadow-sm">
@@ -208,107 +206,80 @@ export default function Dashboard() {
       </div>
 
       {/* ======================================================================= */}
-      {/* LEVEL 2: SYSTEM HEALTH (compact metrics)                                 */}
+      {/* LEVEL 2: SYSTEM HEALTH + MINI MAP                                        */}
       {/* ======================================================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          label="Total teachers"
-          value={summary.total_teachers.toLocaleString()}
-          sub="Across all regions"
-        />
-        <StatCard
-          label="Training coverage"
-          value={`${summary.training_coverage_pct}%`}
-          sub={`${summary.trained_teachers} of ${summary.total_teachers} trained`}
-          accent={summary.training_coverage_pct >= 60 ? 'text-green-600' : 'text-amber-600'}
-        />
-        <StatCard
-          label="Critical regions"
-          value={criticalRegions.length}
-          sub="Require immediate action"
-          accent={criticalRegions.length > 0 ? 'text-red-600' : 'text-green-600'}
-        />
-        <StatCard
-          label="At-risk schools"
-          value={summary.at_risk_schools ?? 0}
-          sub={`System OOF: ${summary.out_of_field_pct ?? 0}%`}
-          accent="text-indigo-700"
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Left: Stat cards */}
+        <div className="lg:col-span-2 grid grid-cols-2 gap-4">
+          <StatCard
+            label="Total teachers"
+            value={summary.total_teachers.toLocaleString()}
+            sub="Across all regions"
+          />
+          <StatCard
+            label="Training coverage"
+            value={`${summary.training_coverage_pct}%`}
+            sub={`${summary.trained_teachers} of ${summary.total_teachers} trained`}
+            accent={summary.training_coverage_pct >= 60 ? 'text-green-600' : 'text-amber-600'}
+          />
+          <StatCard
+            label="Critical regions"
+            value={criticalRegions.length}
+            sub="Require immediate action"
+            accent={criticalRegions.length > 0 ? 'text-red-600' : 'text-green-600'}
+          />
+          <StatCard
+            label="At-risk schools"
+            value={summary.at_risk_schools ?? 0}
+            sub={`System OOF: ${summary.out_of_field_pct ?? 0}%`}
+            accent="text-indigo-700"
+          />
+        </div>
+
+        {/* Right: Mini map */}
+        <div className="card flex flex-col items-center p-4">
+          <div className="flex items-center justify-between w-full mb-3">
+            <h3 className="text-sm font-semibold text-slate-700">Regional overview</h3>
+            <button
+              onClick={() => navigate('/regions')}
+              className="text-xs text-star-600 hover:underline"
+            >
+              Full map →
+            </button>
+          </div>
+          <div className="w-full aspect-square">
+            <PhilippinesMap
+              regions={regions}
+              compact={true}
+              onSelect={(region) => navigate(`/regions?selected=${encodeURIComponent(region)}`)}
+            />
+          </div>
+        </div>
       </div>
 
       {/* ======================================================================= */}
-      {/* LEVEL 3: ANALYTICS (collapsible detailed view)                           */}
+      {/* GAP SCORE CHART                                                          */}
       {/* ======================================================================= */}
-      <div className="mb-6">
-        <button
-          onClick={() => setShowAnalytics(!showAnalytics)}
-          className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${showAnalytics ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-slate-700">Regional Analytics</p>
-              <p className="text-xs text-slate-400">Gap scores and geographic distribution</p>
-            </div>
-          </div>
-          <svg
-            className={`w-5 h-5 text-slate-400 transition-transform ${showAnalytics ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {showAnalytics && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-            {/* Map */}
-            <div className="card flex flex-col items-center">
-              <div className="flex items-center justify-between w-full mb-3">
-                <h3 className="text-sm font-semibold text-slate-700">Regional overview</h3>
-                <button
-                  onClick={() => navigate('/regions')}
-                  className="text-xs text-star-600 hover:underline"
-                >
-                  Full map →
-                </button>
-              </div>
-              <PhilippinesMap
-                regions={regions}
-                compact={true}
-                onSelect={(region) => navigate(`/regions?selected=${encodeURIComponent(region)}`)}
-              />
-            </div>
-
-            {/* Bar chart */}
-            <div className="lg:col-span-2 card">
-              <h3 className="text-sm font-semibold text-slate-700 mb-4">Gap scores by region</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`}
-                    tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" width={52}
-                    tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={v => [`${v}%`, 'Gap score']} />
-                  <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={14}>
-                    {chartData.map((entry, i) => (
-                      <Cell key={i} fill={GAP_COLORS[entry.level]?.hex ?? '#94a3b8'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
+      <div className="card mb-6">
+        <h3 className="text-sm font-semibold text-slate-700 mb-4">Gap scores by region</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16 }}>
+            <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`}
+              tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={52}
+              tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip formatter={v => [`${v}%`, 'Gap score']} />
+            <Bar dataKey="score" radius={[0, 4, 4, 0]} maxBarSize={14}>
+              {chartData.map((entry, i) => (
+                <Cell key={i} fill={GAP_COLORS[entry.level]?.hex ?? '#94a3b8'} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* ======================================================================= */}
-      {/* QUICK STATS: COMPETENCY DISTRIBUTION                                     */}
+      {/* COMPETENCY DISTRIBUTION                                                  */}
       {/* ======================================================================= */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="card">

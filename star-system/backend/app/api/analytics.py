@@ -14,11 +14,12 @@ Gap scores measure the training needs of each region based on:
 - Recency: Teachers whose last training was 3+ years ago
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 import csv, io, json
 from datetime import datetime
+from pydantic import BaseModel
 from app.core.database import get_session
 from app.models.models import Teacher, TrainingRecord, STAR_MODULES
 from app.services.gap_score import compute_all_regions, compute_region_gap, compute_province_gaps, compute_city_gaps, compute_subject_shortage
@@ -36,6 +37,16 @@ from app.services.intelligence import (
 
 # Create router with /analytics prefix
 router = APIRouter(prefix="/analytics", tags=["analytics"])
+
+
+# ---------------------------------------------------------------------------
+# Request/Response Models
+# ---------------------------------------------------------------------------
+
+class CalamityStatusUpdate(BaseModel):
+    """Request body for updating a region's calamity status."""
+    critical_status: str  # "normal", "calamity", or "emergency"
+    critical_reason: str
 
 
 # ---------------------------------------------------------------------------
@@ -95,12 +106,28 @@ def get_regions(session: Session = Depends(get_session)):
     - Gap score (0-1, higher = more need)
     - Gap level (low/moderate/high)
     - Component scores for the four factors
+    - Critical status (calamity/emergency flags)
 
     Used by the Regions page to display the map and table.
     Now includes impact scoring and recommendations.
     """
+    from app.models.models import RegionStatus
+
     results = compute_all_regions(session)
-    return rank_interventions(results)
+    ranked = rank_interventions(results)
+
+    # Load calamity statuses for all regions
+    statuses = session.exec(select(RegionStatus)).all()
+    status_map = {s.region: s for s in statuses}
+
+    # Merge status into each region
+    for region in ranked:
+        status = status_map.get(region["region"])
+        if status and status.critical_status != "normal":
+            region["critical_status"] = status.critical_status
+            region["critical_reason"] = status.critical_reason
+
+    return ranked
 
 
 @router.get("/regions/{region}")
@@ -111,12 +138,21 @@ def get_region_detail(region: str, session: Session = Depends(get_session)):
     In addition to gap scores, includes:
     - Subject breakdown: Teacher count per subject specialization
     - Module uptake: How many teachers have completed each STAR module
+    - Critical status (calamity/emergency flags)
 
     This data powers the region detail panel when clicking a region on the map.
     """
+    from app.models.models import RegionStatus
+
     # Get gap scores and region intelligence
     gap = compute_region_gap(region, session)
     intelligence = build_region_intelligence(session, region)
+
+    # Get calamity status
+    status = session.exec(select(RegionStatus).where(RegionStatus.region == region)).first()
+    if status and status.critical_status != "normal":
+        gap["critical_status"] = status.critical_status
+        gap["critical_reason"] = status.critical_reason
 
     # Get all teachers in this region
     teachers = session.exec(select(Teacher).where(Teacher.region == region)).all()
@@ -412,3 +448,77 @@ def simulate(training_count: int = 10, uplift: int = 12, session: Session = Depe
 def reassignments(limit: int = 15, session: Session = Depends(get_session)):
     """Optional relocation suggestions matched to high-need schools."""
     return suggest_reassignment_matches(session, limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# Calamity Status Management
+# ---------------------------------------------------------------------------
+
+@router.post("/regions/{region}/status")
+def update_region_status(
+    region: str,
+    update: CalamityStatusUpdate,
+    session: Session = Depends(get_session),
+):
+    """
+    Update a region's calamity/critical status.
+
+    This allows Program Officers to flag regions affected by natural calamities,
+    which affects their priority scoring and visual indicators in the UI.
+
+    Args:
+        region: Region name to update
+        update: CalamityStatusUpdate with critical_status and critical_reason
+
+    Returns:
+        Updated region gap analysis with new status
+
+    Raises:
+        HTTPException: If region not found or invalid status
+    """
+    from app.services.gap_score import compute_region_gap
+    from app.models.models import RegionStatus
+
+    # Validate status value
+    valid_statuses = ["normal", "calamity", "emergency"]
+    if update.critical_status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        )
+
+    # Verify region has data
+    teachers = session.exec(select(Teacher).where(Teacher.region == region)).all()
+    if not teachers:
+        raise HTTPException(status_code=404, detail=f"Region '{region}' not found or has no teacher data")
+
+    # Find existing status or create new one
+    existing = session.exec(select(RegionStatus).where(RegionStatus.region == region)).first()
+
+    if existing:
+        # Update existing record
+        existing.critical_status = update.critical_status
+        existing.critical_reason = update.critical_reason
+        existing.updated_at = datetime.utcnow()
+        if update.critical_status == "normal":
+            existing.resolved_at = datetime.utcnow()
+        session.add(existing)
+        session.commit()
+    else:
+        # Create new status record
+        status = RegionStatus(
+            region=region,
+            critical_status=update.critical_status,
+            critical_reason=update.critical_reason,
+            declared_at=datetime.utcnow(),
+        )
+        session.add(status)
+        session.commit()
+
+    gap = compute_region_gap(region, session)
+
+    return {
+        **gap,
+        "critical_status": update.critical_status,
+        "critical_reason": update.critical_reason,
+    }

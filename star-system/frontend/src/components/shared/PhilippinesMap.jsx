@@ -89,6 +89,19 @@ function styleRegion(feature, selected, gapByRegion) {
   const level     = data?.gap_level ?? 'none'
   const colors    = GAP_COLORS[level]
   const isSel     = selected === canonical
+  const isCalamity = data?.critical_status && data.critical_status !== 'normal'
+
+  // Calamity regions get pulsing red border
+  if (isCalamity) {
+    return {
+      fillColor:   isSel ? colors.selected : colors.fill,
+      fillOpacity: isSel ? 0.9 : 0.6,
+      color:       data.critical_status === 'emergency' ? '#dc2626' : '#d97706',
+      weight:      isSel ? 4 : 3,
+      dashArray:   isCalamity ? '5, 5' : null,
+    }
+  }
+
   return {
     fillColor:   isSel ? colors.selected : colors.fill,
     fillOpacity: isSel ? 0.9 : 0.7,

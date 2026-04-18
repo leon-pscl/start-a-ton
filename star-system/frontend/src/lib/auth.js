@@ -2,9 +2,8 @@
  * Authentication Module
  *
  * Simple role-based authentication using localStorage.
- * Supports three roles:
- * - program_officer: Full access to all regions and data
- * - regional_coordinator: Access to assigned region only
+ * Supports two roles:
+ * - admin: Full access to all regions and data (Program Officers & Regional Coordinators)
  * - teacher: Personal dashboard and profile editing only
  */
 
@@ -64,12 +63,21 @@ export function isAuthenticated() {
 }
 
 /**
- * Get user's assigned region (for regional_coordinator role).
+ * Check if user is admin role (Program Officer or Regional Coordinator).
+ * @returns {boolean}
+ */
+export function isAdmin() {
+  const user = getCurrentUser()
+  return user?.role === 'admin'
+}
+
+/**
+ * Get user's assigned region (optional filter for Regional Coordinators).
  * @returns {string | undefined}
  */
 export function getUserRegion() {
   const user = getCurrentUser()
-  return user?.role === 'regional_coordinator' ? user.region : undefined
+  return user?.region
 }
 
 /**
@@ -85,6 +93,6 @@ export function canAccessPage(path, role) {
            path.startsWith('/teachers?') ||
            path.includes('teacher_id')
   }
-  // Program officers and regional coordinators have full access
+  // Admins (Program Officers & Regional Coordinators) have full access
   return true
 }
